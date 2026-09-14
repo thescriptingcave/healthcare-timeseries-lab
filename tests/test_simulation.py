@@ -4,6 +4,7 @@ from uuid import UUID
 import pytest
 
 from healthcare_timeseries_lab.patients.models import PatientProfile
+from healthcare_timeseries_lab.simulation.models import SimulationStatus
 from healthcare_timeseries_lab.simulation.runner import (
     BaselineSimulationConfig,
     run_baseline_simulation,
@@ -41,19 +42,58 @@ def make_config(seed: int = 42) -> BaselineSimulationConfig:
 
 
 def test_one_hour_simulation_produces_720_events() -> None:
-    events = run_baseline_simulation(
+    result = run_baseline_simulation(
         patient=make_patient(),
         config=make_config(),
     )
 
-    assert len(events) == 720
+    assert len(result.events) == 720
 
 
-def test_simulation_uses_correct_timestamps() -> None:
-    events = run_baseline_simulation(
+def test_simulation_produces_run_metadata() -> None:
+    result = run_baseline_simulation(
         patient=make_patient(),
         config=make_config(),
     )
+
+    run = result.run
+
+    assert run.simulation_id == SIMULATION_ID
+    assert run.scenario_name == "baseline"
+    assert run.scenario_version == "1.0"
+    assert run.seed == 42
+    assert run.status == SimulationStatus.COMPLETED
+
+    assert run.start_time == datetime(
+        2026,
+        1,
+        1,
+        0,
+        0,
+        0,
+        tzinfo=UTC,
+    )
+
+    assert run.end_time == datetime(
+        2026,
+        1,
+        1,
+        1,
+        0,
+        0,
+        tzinfo=UTC,
+    )
+
+    assert run.duration == timedelta(hours=1)
+
+
+def test_simulation_uses_correct_event_timestamps() -> None:
+    result = run_baseline_simulation(
+        patient=make_patient(),
+        config=make_config(),
+    )
+
+    events = result.events
 
     assert events[0].event_time == datetime(
         2026,
@@ -77,17 +117,29 @@ def test_simulation_uses_correct_timestamps() -> None:
 
 
 def test_sequence_numbers_are_monotonic() -> None:
-    events = run_baseline_simulation(
+    result = run_baseline_simulation(
         patient=make_patient(),
         config=make_config(),
     )
 
     sequence_numbers = [
         event.sequence_number
-        for event in events
+        for event in result.events
     ]
 
     assert sequence_numbers == list(range(1, 721))
+
+
+def test_all_events_reference_simulation_run() -> None:
+    result = run_baseline_simulation(
+        patient=make_patient(),
+        config=make_config(),
+    )
+
+    assert all(
+        event.simulation_id == result.run.simulation_id
+        for event in result.events
+    )
 
 
 def test_same_seed_produces_identical_simulation() -> None:
@@ -115,21 +167,24 @@ def test_different_seed_changes_physiology() -> None:
         config=make_config(seed=99),
     )
 
-    assert first_run[0].heart_rate_bpm != second_run[0].heart_rate_bpm
+    assert (
+        first_run.events[0].heart_rate_bpm
+        != second_run.events[0].heart_rate_bpm
+    )
 
 
 def test_event_ids_are_unique() -> None:
-    events = run_baseline_simulation(
+    result = run_baseline_simulation(
         patient=make_patient(),
         config=make_config(),
     )
 
     event_ids = {
         event.event_id
-        for event in events
+        for event in result.events
     }
 
-    assert len(event_ids) == len(events)
+    assert len(event_ids) == len(result.events)
 
 
 def test_invalid_duration_is_rejected() -> None:

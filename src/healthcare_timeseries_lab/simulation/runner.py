@@ -7,28 +7,62 @@ from healthcare_timeseries_lab.patients.models import PatientProfile
 from healthcare_timeseries_lab.physiology.engine import PhysiologyEngine
 from healthcare_timeseries_lab.physiology.models import PhysiologicalState
 from healthcare_timeseries_lab.runtime.clock import SimulationClock
+from healthcare_timeseries_lab.simulation.models import (
+    SimulationRun,
+    SimulationStatus,
+)
 from healthcare_timeseries_lab.telemetry.events import VitalsTelemetryEvent
 
 EVENT_NAMESPACE = UUID("00000000-0000-0000-0000-000000000001")
+
+SIMULATOR_VERSION = "0.1.0"
 
 
 @dataclass(frozen=True)
 class BaselineSimulationConfig:
     simulation_id: UUID
     device_id: UUID
+
     start_time: datetime
     duration: timedelta
     step: timedelta
+
     seed: int
+
+    scenario_name: str = "baseline"
+    scenario_version: str = "1.0"
+
+
+@dataclass(frozen=True)
+class BaselineSimulationResult:
+    run: SimulationRun
+    events: list[VitalsTelemetryEvent]
 
 
 def run_baseline_simulation(
     *,
     patient: PatientProfile,
     config: BaselineSimulationConfig,
-) -> list[VitalsTelemetryEvent]:
+) -> BaselineSimulationResult:
     if config.duration <= timedelta(0):
         raise ValueError("duration must be greater than zero")
+
+    if config.step <= timedelta(0):
+        raise ValueError("step must be greater than zero")
+
+    end_time = config.start_time + config.duration
+
+    simulation_run = SimulationRun(
+        simulation_id=config.simulation_id,
+        scenario_name=config.scenario_name,
+        scenario_version=config.scenario_version,
+        seed=config.seed,
+        start_time=config.start_time,
+        end_time=end_time,
+        step=config.step,
+        simulator_version=SIMULATOR_VERSION,
+        status=SimulationStatus.COMPLETED,
+    )
 
     clock = SimulationClock(
         start_time=config.start_time,
@@ -76,4 +110,7 @@ def run_baseline_simulation(
 
         events.append(event)
 
-    return events
+    return BaselineSimulationResult(
+        run=simulation_run,
+        events=events,
+    )
