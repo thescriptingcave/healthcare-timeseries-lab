@@ -1,0 +1,41 @@
+name: healthcare-timeseries-lab
+
+services:
+  trino:
+    build:
+      context: ./infra/trino
+    container_name: htl-trino
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./infra/trino/etc:/etc/trino:ro
+    healthcheck:
+      test: ["CMD-SHELL", "(exec 3<>/dev/tcp/localhost/8080) && exit 0 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 45s
+
+  superset:
+    image: apache/superset:109402b
+    container_name: htl-superset
+    depends_on:
+      trino:
+        condition: service_healthy
+    environment:
+      SUPERSET_SECRET_KEY: "dev-key-123"
+      SUPERSET__SQLALCHEMY_DATABASE_URI: sqlite:////app/instance/superset.db
+      SUPERSET_HOST: 0.0.0.0
+      SUPERSET_PORT: 8088
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./infra/superset/instance:/app/instance
+      - ./infra/superset/dashboards:/app/dashboards:ro
+    entrypoint: /bin/sh -c "superset db upgrade heads && superset init && superset run -h 0.0.0.0 -p 8088 --with-threads"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/login/ || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
