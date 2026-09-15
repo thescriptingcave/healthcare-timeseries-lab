@@ -1,21 +1,25 @@
 from datetime import UTC, datetime, timedelta
-from random import Random
 from statistics import mean, pstdev
 from uuid import UUID
 
 from healthcare_timeseries_lab.patients.models import PatientProfile
-from healthcare_timeseries_lab.physiology.engine import PhysiologyEngine
-from healthcare_timeseries_lab.physiology.models import PhysiologicalState
-from healthcare_timeseries_lab.runtime.clock import SimulationClock
+from healthcare_timeseries_lab.simulation.runner import (
+    BaselineSimulationConfig,
+    run_baseline_simulation,
+)
 
 SEED = 42
 STEP_SECONDS = 5
 DURATION_MINUTES = 60
 
+PATIENT_ID = UUID("11111111-1111-1111-1111-111111111111")
+SIMULATION_ID = UUID("22222222-2222-2222-2222-222222222222")
+DEVICE_ID = UUID("33333333-3333-3333-3333-333333333333")
 
-def main() -> None:
-    patient = PatientProfile(
-        patient_id=UUID("11111111-1111-1111-1111-111111111111"),
+
+def make_patient() -> PatientProfile:
+    return PatientProfile(
+        patient_id=PATIENT_ID,
         age=45,
         sex="female",
         baseline_heart_rate_bpm=72.0,
@@ -27,95 +31,88 @@ def main() -> None:
         variability_factor=1.0,
     )
 
+
+def main() -> None:
+    patient = make_patient()
     start_time = datetime(2026, 1, 1, tzinfo=UTC)
 
-    clock = SimulationClock(
-        start_time=start_time,
-        step=timedelta(seconds=STEP_SECONDS),
+    result = run_baseline_simulation(
+        patient=patient,
+        config=BaselineSimulationConfig(
+            simulation_id=SIMULATION_ID,
+            device_id=DEVICE_ID,
+            start_time=start_time,
+            duration=timedelta(minutes=DURATION_MINUTES),
+            step=timedelta(seconds=STEP_SECONDS),
+            seed=SEED,
+        ),
     )
 
-    engine = PhysiologyEngine(Random(SEED))
-
-    state = PhysiologicalState(
-        timestamp=clock.now,
-        heart_rate_bpm=patient.baseline_heart_rate_bpm,
-        spo2_pct=patient.baseline_spo2_pct,
-        respiration_rate_bpm=patient.baseline_respiration_rate_bpm,
-        temperature_c=patient.baseline_temperature_c,
-        systolic_bp_mmhg=patient.baseline_systolic_bp_mmhg,
-        diastolic_bp_mmhg=patient.baseline_diastolic_bp_mmhg,
-    )
-
-    observations = []
-
-    observation_count = (
-        DURATION_MINUTES * 60
-    ) // STEP_SECONDS
-
-    for _ in range(observation_count):
-        timestamp = clock.advance()
-
-        state = engine.next_state(
-            patient=patient,
-            previous_state=state,
-            timestamp=timestamp,
-        )
-
-        observations.append(state)
+    observations = [
+        {
+            "heart_rate_bpm": event.heart_rate_bpm,
+            "spo2_pct": event.spo2_pct,
+            "respiration_rate_bpm": event.respiration_rate_bpm,
+            "temperature_c": event.temperature_c,
+            "systolic_bp_mmhg": event.systolic_bp_mmhg,
+            "diastolic_bp_mmhg": event.diastolic_bp_mmhg,
+        }
+        for event in result.events
+    ]
 
     print(f"Observations: {len(observations)}")
-    print(f"Start:        {observations[0].timestamp}")
-    print(f"End:          {observations[-1].timestamp}")
+    print(f"Start:        {result.events[0].event_time}")
+    print(f"End:          {result.events[-1].event_time}")
     print()
 
     print_summary(
         "Heart Rate",
-        [state.heart_rate_bpm for state in observations],
+        [obs["heart_rate_bpm"] for obs in observations],
         patient.baseline_heart_rate_bpm,
     )
 
     print_summary(
         "SpO2",
-        [state.spo2_pct for state in observations],
+        [obs["spo2_pct"] for obs in observations],
         patient.baseline_spo2_pct,
     )
 
     print_summary(
         "Respiration",
-        [state.respiration_rate_bpm for state in observations],
+        [obs["respiration_rate_bpm"] for obs in observations],
         patient.baseline_respiration_rate_bpm,
     )
 
     print_summary(
         "Temperature",
-        [state.temperature_c for state in observations],
+        [obs["temperature_c"] for obs in observations],
         patient.baseline_temperature_c,
     )
 
     print_summary(
         "Systolic BP",
-        [state.systolic_bp_mmhg for state in observations],
+        [obs["systolic_bp_mmhg"] for obs in observations],
         patient.baseline_systolic_bp_mmhg,
     )
 
     print_summary(
         "Diastolic BP",
-        [state.diastolic_bp_mmhg for state in observations],
+        [obs["diastolic_bp_mmhg"] for obs in observations],
         patient.baseline_diastolic_bp_mmhg,
     )
 
     print()
     print("First 5 observations:")
 
-    for state in observations[:5]:
+    for event in result.events[:5]:
         print(
-            state.timestamp,
-            f"HR={state.heart_rate_bpm:.2f}",
-            f"SpO2={state.spo2_pct:.2f}",
-            f"RR={state.respiration_rate_bpm:.2f}",
-            f"Temp={state.temperature_c:.2f}",
-            f"SBP={state.systolic_bp_mmhg:.2f}",
-            f"DBP={state.diastolic_bp_mmhg:.2f}",
+            event.event_time,
+            f"HR={event.heart_rate_bpm:.2f}",
+            f"SpO2={event.spo2_pct:.2f}",
+            f"RR={event.respiration_rate_bpm:.2f}",
+            f"Temp={event.temperature_c:.2f}",
+            f"SBP={event.systolic_bp_mmhg:.2f}",
+            f"DBP={event.diastolic_bp_mmhg:.2f}",
         )
 
 

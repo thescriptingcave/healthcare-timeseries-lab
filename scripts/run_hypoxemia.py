@@ -5,11 +5,10 @@ from statistics import mean, stdev
 from uuid import UUID
 
 from healthcare_timeseries_lab.patients.models import PatientProfile
-from healthcare_timeseries_lab.scenarios.library import progressive_hypoxemia
-from healthcare_timeseries_lab.simulation.scenario_runner import (
-    ScenarioSimulationConfig,
-    ScenarioSimulationResult,
-    run_scenario_simulation,
+from healthcare_timeseries_lab.simulation.pipeline import (
+    PipelineConfig,
+    PipelineResult,
+    run_pipeline,
 )
 
 PATIENT_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -41,8 +40,9 @@ def make_patient() -> PatientProfile:
     )
 
 
-def make_config() -> ScenarioSimulationConfig:
-    return ScenarioSimulationConfig(
+def make_config() -> PipelineConfig:
+    return PipelineConfig(
+        patient=make_patient(),
         simulation_id=SIMULATION_ID,
         device_id=DEVICE_ID,
         scenario_name="progressive_hypoxemia",
@@ -55,7 +55,7 @@ def make_config() -> ScenarioSimulationConfig:
 
 
 def events_between(
-    result: ScenarioSimulationResult,
+    result: PipelineResult,
     start: timedelta,
     end: timedelta,
 ):
@@ -79,7 +79,7 @@ def summarize_signal(values: list[float]) -> str:
 
 
 def print_window_summary(
-    result: ScenarioSimulationResult,
+    result: PipelineResult,
     *,
     label: str,
     start: timedelta,
@@ -152,7 +152,7 @@ def print_window_summary(
     )
 
 
-def write_csv(result: ScenarioSimulationResult) -> None:
+def write_csv(result: PipelineResult) -> None:
     OUTPUT_PATH.parent.mkdir(
         parents=True,
         exist_ok=True,
@@ -200,9 +200,7 @@ def write_csv(result: ScenarioSimulationResult) -> None:
             )
 
 
-def print_ground_truth(
-    result: ScenarioSimulationResult,
-) -> None:
+def print_ground_truth(result: PipelineResult) -> None:
     print()
     print("Clinical Ground Truth")
     print("---------------------")
@@ -216,12 +214,8 @@ def print_ground_truth(
         )
 
 
-def main() -> None:
-    result = run_scenario_simulation(
-        patient=make_patient(),
-        config=make_config(),
-        conditions=progressive_hypoxemia(),
-    )
+def execute() -> None:
+    result = run_pipeline(config=make_config())
 
     print("Progressive Hypoxemia Simulation")
     print("================================")
@@ -232,6 +226,17 @@ def main() -> None:
     print(f"Observations:  {len(result.events)}")
     print(f"Start:         {result.run.start_time}")
     print(f"End:           {result.run.end_time}")
+    print(f"Kafka:         produced {result.produced}")
+    print(f"Lakehouse:     {result.lakehouse_inserted} rows")
+    print(
+        "FHIR:          "
+        f"{result.fhir_transactions} entries (status {result.fhir_status})"
+    )
+
+    for issue in result.fhir_issues:
+        if "information/" in issue:
+            continue
+        print(f"  FHIR issue: {issue}")
 
     print_window_summary(
         result,
@@ -284,4 +289,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    execute()

@@ -4,6 +4,7 @@ These tests exercise pure logic — no live Trino/Postgres required.
 """
 
 from healthcare_timeseries_lab.lakehouse import (
+    _VITAL_MAP,
     ANALYTICS_AGG_QUERY,
     JDBC_CATALOG_NAMESPACE_PROPERTIES_DDL,
     JDBC_CATALOG_V0_DDL,
@@ -11,12 +12,14 @@ from healthcare_timeseries_lab.lakehouse import (
     LAKEHOUSE_DDL_STATEMENTS,
     READ_BACK_QUERY,
     VITALS_TABLE_DDL,
-    _VITAL_MAP,
     get_jdbc_catalog_cleanup,
     get_jdbc_catalog_seed_statements,
     parse_observation_row,
 )
-
+from healthcare_timeseries_lab.lakehouse.writer import (
+    build_vitals_insert_sql,
+    insert_vitals,
+)
 
 # ---------------------------------------------------------------------------
 # JdbcCatalog USchema (extracted from Iceberg 1.11.0 JdbcUtil.class)
@@ -221,3 +224,71 @@ def test_read_back_query_references_vitals_table() -> None:
 def test_vital_map_loinc_codes_match_fhir_models() -> None:
     expected_codes = {"8867-4", "2708-6", "9279-1", "8310-5", "8480-6", "8462-4"}
     assert set(_VITAL_MAP.keys()) == expected_codes
+
+
+# ---------------------------------------------------------------------------
+# Vitals writer (shared INSERT builder, Milestone 7)
+# ---------------------------------------------------------------------------
+
+
+def _sample_vitals_record() -> dict:
+    return {
+        "event_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "simulation_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "patient_id": "11111111-1111-1111-1111-111111111111",
+        "device_id": "22222222-2222-2222-2222-222222222222",
+        "event_time": "2026-01-01T00:00:35+00:00",
+        "sequence_number": 7,
+        "heart_rate_bpm": 72.0,
+        "spo2_pct": 98.0,
+        "respiration_rate_bpm": 14.0,
+        "temperature_c": 36.8,
+        "systolic_bp_mmhg": 120.0,
+        "diastolic_bp_mmhg": 76.0,
+        "device_status": "CONNECTED",
+        "quality_code": "GOOD",
+    }
+
+
+def test_build_vitals_insert_sql_targets_lakehouse_table() -> None:
+    sql = build_vitals_insert_sql([_sample_vitals_record()])
+    assert "INSERT INTO lake.lakehouse.vitals" in sql
+    assert "event_time" in sql
+    assert "diastolic_bp_mmhg" in sql
+
+
+def test_build_vitals_insert_sql_renders_trino_literals() -> None:
+    sql = build_vitals_insert_sql([_sample_vitals_record()])
+    assert "TIMESTAMP '2026-01-01 00:00:35+00:00'" in sql
+    assert "'11111111-1111-1111-1111-111111111111'" in sql
+    assert "72.0" in sql
+    assert "98.0" in sql
+    assert "36.8" in sql
+
+
+def test_build_vitals_insert_sql_handles_multiple_rows() -> None:
+    sql = build_vitals_insert_sql(
+        [_sample_vitals_record(), _sample_vitals_record()]
+    )
+    assert sql.count("TIMESTAMP ") == 2
+    assert sql.count("+00:00") == 2
+
+
+def test_insert_vitals_returns_row_count(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_ddl(statements, catalog=None) -> None:
+        captured["sql"] = statements[0]
+
+    monkeypatch.setattr(
+        "healthcare_timeseries_lab.lakehouse.writer.run_trino_ddl",
+        fake_ddl,
+    )
+
+    count = insert_vitals([_sample_vitals_record(), _sample_vitals_record()])
+    assert count == 2
+    assert "INSERT INTO lake.lakehouse.vitals" in captured["sql"]
+
+    count = insert_vitals([_sample_vitals_record()], catalog="other")
+    assert count == 1
+    assert "INSERT INTO other.lakehouse.vitals" in captured["sql"]

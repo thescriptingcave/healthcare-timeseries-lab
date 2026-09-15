@@ -160,9 +160,11 @@ healthcare-timeseries-lab/
 │   ├── init_infra.py
 │   ├── provision_lakehouse.py
 │   ├── push_to_fhir.py
+│   ├── run_baseline.py
+│   ├── run_clinical_store.py
+│   ├── run_hypoxemia.py
 │   ├── run_lakehouse_analytics.py
-│   ├── run_kafka_streaming.py
-│   └── run_baseline.py
+│   └── run_pipeline.py              # Milestone 7 (unified pipeline)
 ├── infra/
 │   └── grafana/            # Milestone 6 (image, provisioning, dashboard)
 ├── notebooks/
@@ -177,7 +179,7 @@ healthcare-timeseries-lab/
 │       ├── physiology/
 │       ├── runtime/
 │       ├── scenarios/
-│       ├── simulation/
+│       ├── simulation/          # Milestone 7 (pipeline orchestrator)
 │       ├── streaming/           # Milestone 4 (Kafka + Avro)
 │       └── telemetry/
 └── tests/
@@ -192,9 +194,10 @@ Every milestone is validated end-to-end before commit and push.
 | M1 — Lakehouse infrastructure | Docker Compose lakehouse: Kafka, Schema Registry, MinIO, Postgres (FHIR + Iceberg), HAPI FHIR, Trino, InfluxDB | `docker compose ps` all healthy; `uv run python scripts/init_infra.py` |
 | M2 — FHIR vital-signs panel | Simulated vitals pushed as LOINC `85353-1` transaction Bundle to HAPI | `uv run python scripts/push_to_fhir.py` → 12 Observations live on `/fhir` |
 | M3 — Iceberg lakehouse | `lake.lakehouse.vitals` Iceberg table over JDBC catalog on Postgres; analytics read-back | `uv run python scripts/provision_lakehouse.py` + `uv run python scripts/run_lakehouse_analytics.py` |
-| M4 — Kafka vitals streaming | Simulated vitals flow as Avro through Kafka/Schema Registry into `lake.lakehouse.vitals` | `uv run python scripts/run_kafka_streaming.py` → produce/consume + Trino aggregation |
+| M4 — Kafka vitals streaming | Simulated vitals flow as Avro through Kafka/Schema Registry into `lake.lakehouse.vitals` | `uv run python scripts/run_pipeline.py --scenario baseline` (supersedes the M4 demo) → produce/consume + Trino aggregation |
 | M5 — MySQL clinical store | MySQL `clinical.patients`/`clinical.encounters` exposed via Trino `mysql` catalog; one query joins MySQL demographics + Iceberg vitals + FHIR resources | `uv run python scripts/run_clinical_store.py` → 3-catalog patient summary |
 | M6 — Observability & analysis | Grafana (custom image) + `trino-datasource` plugin + provisioned "Lakehouse Vitals" dashboard; Jupyter notebook analyzing `lake.lakehouse.vitals` | open http://localhost:3000 (admin/admin); `uv run jupyter nbconvert --to notebook --execute notebooks/vitals_analysis.ipynb` |
+| M7 — Unified simulation → pipeline | One general pipeline runs any scenario (baseline or a clinical condition) through the physiology engine and streams it `simulate → Kafka (Avro) → Iceberg lakehouse → HAPI FHIR`; `run_baseline.py`/`run_hypoxemia.py` reuse the sim runners | `uv run python scripts/run_pipeline.py --scenario progressive_hypoxemia` → Kafka + lakehouse rows + FHIR Observations; `uv run python scripts/run_baseline.py` |
 
 ## Development Environment
 
