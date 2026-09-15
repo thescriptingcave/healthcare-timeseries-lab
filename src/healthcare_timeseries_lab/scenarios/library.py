@@ -49,3 +49,44 @@ def progressive_hypoxemia() -> tuple[ConditionDefinition, ...]:
             ),
         ),
     )
+
+
+def tachycardia() -> tuple[ConditionDefinition, ...]:
+    return (
+        ConditionDefinition(
+            name="tachycardia",
+            effect=PhysiologicalEffect(
+                heart_rate_delta_bpm=40.0,
+            ),
+            phases=(
+                ScenarioPhaseDefinition(
+                    phase=ConditionPhase.ONSET,
+                    start_offset=timedelta(hours=1),
+                    end_offset=timedelta(hours=1, minutes=30),
+                    start_severity=0.0,
+                    end_severity=0.3,
+                ),
+                ScenarioPhaseDefinition(
+                    phase=ConditionPhase.PROGRESSION,
+                    start_offset=timedelta(hours=1, minutes=30),
+                    end_offset=timedelta(hours=2),
+                    start_severity=0.3,
+                    end_severity=1.0,
+                ),
+                ScenarioPhaseDefinition(
+                    phase=ConditionPhase.PLATEAU,
+                    start_offset=timedelta(hours=2),
+                    end_offset=timedelta(hours=3),
+                    start_severity=1.0,
+                    end_severity=1.0,
+                ),
+                ScenarioPhaseDefinition(
+                    phase=ConditionPhase.RECOVERY,
+                    start_offset=timedelta(hours=3),
+                    end_offset=timedelta(hours=4),
+                    start_severity=1.0,
+                    end_severity=0.0,
+                ),
+            ),
+        ),
+    )

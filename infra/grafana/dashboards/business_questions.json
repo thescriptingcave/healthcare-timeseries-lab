@@ -1,0 +1,158 @@
+{
+  "id": null,
+  "uid": "business-questions",
+  "title": "Business Questions",
+  "tags": ["htl", "lakehouse", "business"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 0,
+  "editable": true,
+  "refresh": "",
+  "time": {
+    "from": "2026-01-01T00:00:00.000Z",
+    "to": "2026-01-01T01:00:00.000Z"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "B1: Who was on the ward on January 1st?",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "SELECT\n    p.full_name,\n    p.mrn,\n    p.age,\n    p.sex,\n    p.admitted_at,\n    e.ended_at,\n    e.status\nFROM mysql.clinical.patients p\nJOIN mysql.clinical.encounters e\n    ON e.patient_id = p.patient_id\nORDER BY p.admitted_at",
+          "rawQuery": true,
+          "format": 1
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": 28 }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "B2: Build the hourly handoff summary",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "WITH hourly AS (\n    SELECT\n        patient_id,\n        date_trunc('hour', event_time) AS hour_bucket,\n        ROUND(AVG(heart_rate_bpm), 1)       AS avg_heart_rate,\n        ROUND(AVG(spo2_pct), 1)             AS avg_spo2,\n        ROUND(AVG(respiration_rate_bpm), 1) AS avg_respiration,\n        ROUND(AVG(temperature_c), 2)        AS avg_temperature,\n        COUNT(*)                            AS readings\n    FROM lake.lakehouse.vitals\n    WHERE patient_id IN (\n        '55555555-5555-5555-5555-555555555555',\n        '66666666-6666-6666-6666-666666666666',\n        '77777777-7777-7777-7777-777777777777'\n    )\n    GROUP BY 1, 2\n)\nSELECT\n    h.hour_bucket AS shift_hour,\n    p.full_name,\n    h.avg_heart_rate,\n    h.avg_spo2,\n    h.avg_respiration,\n    h.avg_temperature,\n    h.readings\nFROM hourly h\nJOIN mysql.clinical.patients p\n    ON p.patient_id = h.patient_id\nORDER BY h.hour_bucket, p.full_name",
+          "rawQuery": true,
+          "format": 1
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": 28 }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "B3: Flag the patient who needs attention overnight",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "WITH previous_hour AS (\n    SELECT\n        patient_id,\n        ROUND(AVG(spo2_pct), 1) AS avg_spo2,\n        COUNT(*)                AS readings\n    FROM lake.lakehouse.vitals\n    WHERE event_time BETWEEN\n        TIMESTAMP '2026-01-01 03:00:00+00:00'\n        AND TIMESTAMP '2026-01-01 03:59:59+00:00'\n    GROUP BY patient_id\n)\nSELECT\n    p.full_name,\n    p.mrn,\n    ph.avg_spo2,\n    ph.readings,\n    e.status\nFROM mysql.clinical.patients p\nLEFT JOIN mysql.clinical.encounters e\n    ON e.patient_id = p.patient_id\nLEFT JOIN previous_hour ph\n    ON ph.patient_id = p.patient_id\nORDER BY ph.avg_spo2 ASC NULLS LAST",
+          "rawQuery": true,
+          "format": 1
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": 28 }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "I1: Find the moment Naomi started to deteriorate",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "WITH tagged AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        LAG(spo2_pct, 1) OVER (\n            PARTITION BY patient_id\n            ORDER BY event_time\n        ) AS previous_spo2\n    FROM lake.lakehouse.vitals\n    WHERE patient_id = '55555555-5555-5555-5555-555555555555'\n)\nSELECT\n    event_time,\n    ROUND(previous_spo2, 1) AS spo2_before,\n    ROUND(spo2_pct, 1)      AS spo2_after\nFROM tagged\nWHERE previous_spo2 >= 94 AND spo2_pct < 94\nORDER BY event_time",
+          "rawQuery": true,
+          "format": 1
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": 28 }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "I2: Is that reading a real desaturation, or device noise?",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "WITH smoothed AS (\n    SELECT\n        v.event_time,\n        p.full_name,\n        v.spo2_pct,\n        ROUND(AVG(v.spo2_pct) OVER (\n            PARTITION BY v.patient_id\n            ORDER BY v.event_time\n            ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING\n        ), 2) AS spo2_ma\n    FROM lake.lakehouse.vitals v\n    JOIN mysql.clinical.patients p\n        ON p.patient_id = v.patient_id\n    WHERE v.patient_id IN (\n        '55555555-5555-5555-5555-555555555555',\n        '77777777-7777-7777-7777-777777777777'\n    )\n)\nSELECT\n    event_time,\n    full_name,\n    ROUND(spo2_pct, 1) AS raw_spo2,\n    spo2_ma,\n    ROUND(spo2_pct - spo2_ma, 2) AS deviation_from_average\nFROM smoothed\nORDER BY event_time, full_name",
+          "rawQuery": true,
+          "format": 1
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": 28 }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "I3: Where does every reading sit in its patient's distribution?",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "WITH dist AS (\n    SELECT\n        p.full_name,\n        v.spo2_pct,\n        v.event_time,\n        RANK() OVER (\n            PARTITION BY v.patient_id\n            ORDER BY v.spo2_pct ASC\n        ) AS spo2_worst_rank,\n        NTILE(10) OVER (\n            PARTITION BY v.patient_id\n            ORDER BY v.spo2_pct ASC\n        ) AS spo2_decile\n    FROM lake.lakehouse.vitals v\n    JOIN mysql.clinical.patients p\n        ON p.patient_id = v.patient_id\n    WHERE v.patient_id IN (\n        '55555555-5555-5555-5555-555555555555',\n        '66666666-6666-6666-6666-666666666666',\n        '77777777-7777-7777-7777-777777777777'\n    )\n)\nSELECT\n    full_name,\n    ROUND(spo2_pct, 1) AS spo2,\n    event_time,\n    spo2_worst_rank,\n    spo2_decile\nFROM dist\nWHERE spo2_worst_rank <= 3\nORDER BY full_name, spo2_worst_rank",
+          "rawQuery": true,
+          "format": 1
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": 28 }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "A1: How many DISTINCT desaturation episodes did Naomi have?",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "WITH flagged AS (\n    SELECT\n        patient_id,\n        event_time,\n        spo2_pct,\n        CASE WHEN spo2_pct < 94 THEN 1 ELSE 0 END AS is_low,\n        LAG(CASE WHEN spo2_pct < 94 THEN 1 ELSE 0 END, 1) OVER (\n            PARTITION BY patient_id\n            ORDER BY event_time\n        ) AS previous_is_low\n    FROM lake.lakehouse.vitals\n    WHERE patient_id = '55555555-5555-5555-5555-555555555555'\n),
+islands AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        is_low,\n        SUM(\n            CASE WHEN is_low = 1\n                  AND (previous_is_low IS NULL OR previous_is_low = 0)\n                  THEN 1 ELSE 0 END\n        ) OVER (\n            PARTITION BY patient_id\n            ORDER BY event_time\n            ROWS UNBOUNDED PRECEDING\n        ) AS episode_id\n    FROM flagged\n)\nSELECT\n    MIN(event_time)                                    AS episode_start,\n    MAX(event_time)                                    AS episode_end,\n    date_diff('second', MIN(event_time), MAX(event_time))\n                                                     AS duration_seconds,\n    COUNT(*)                                          AS readings,\n    ROUND(MIN(spo2_pct), 1)                           AS lowest_spo2,\n    ROUND(AVG(spo2_pct), 1)                           AS avg_spo2\nFROM islands\nWHERE is_low = 1\nGROUP BY episode_id\nORDER BY episode_start",
+          "rawQuery": true,
+          "format": 1
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": 28 }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "A2: Turn 900 alarm ticks into 4 alarm events (sessionization)",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "WITH hits AS (\n    SELECT\n        event_time,\n        spo2_pct\n    FROM lake.lakehouse.vitals\n    WHERE patient_id = '55555555-5555-5555-5555-555555555555'\n      AND spo2_pct < 90\n),
+gapped AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        date_diff(\n            'second',\n            LAG(event_time, 1) OVER (ORDER BY event_time),\n            event_time\n        ) AS seconds_since_last_alarm\n    FROM hits\n),
+sessions AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        SUM(\n            CASE WHEN seconds_since_last_alarm IS NULL\n                  OR seconds_since_last_alarm >= 120\n                  THEN 1 ELSE 0 END\n        ) OVER (\n            ORDER BY event_time\n            ROWS UNBOUNDED PRECEDING\n        ) AS alarm_session\n    FROM gapped\n)\nSELECT\n    MIN(event_time)     AS alarm_started,\n    MAX(event_time)     AS alarm_ended,\n    MIN(spo2_pct)       AS lowest_spo2,\n    ROUND(AVG(spo2_pct), 1) AS avg_spo2,\n    COUNT(*)            AS alert_readings\nFROM sessions\nGROUP BY alarm_session\nORDER BY alarm_started",
+          "rawQuery": true,
+          "format": 1
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": 28 }
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": { "list": [] }
+}
