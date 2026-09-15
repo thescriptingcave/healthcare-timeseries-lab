@@ -1,66 +1,58 @@
 #!/usr/bin/env python3
-"""Import Superset dashboards from JSON files."""
+"""Import Superset dashboards from JSON files.
 
-from __future__ import annotations
+This script provides instructions for importing dashboards manually via the Superset UI
+or command line, as the REST API requires CSRF tokens and proper authentication flow.
 
-import json
-import subprocess
-import sys
+For Superset, dashboards are typically imported through the web UI:
+  1. Go to http://localhost:8080/dashboard/
+  2. Click '+' → 'Import Dashboard'
+  3. Upload one of the JSON files from infra/superset/dashboards/
+
+Or use the command line with superset CLI (requires database pre-configuration):
+
+  # First, set up Trino database connection (one-time setup in Superset UI)
+  # - Go to Data → Databases → '+' to add new database
+  # - Database Name: trino
+  # - SQLAlchemy URI: trino://trino:trino@localhost:8080/trino
+  # - Click 'Test Connection' to verify
+  # - Click 'Save'
+
+  # Then import dashboards:
+  cd infra/superset/dashboards
+  for f in *.json; do
+    echo "Importing $f..."
+    superset dashboard import "$f" --overwrite
+  done
+
+Note: The database connection must be configured first through Superset UI.
+"""
+
 from pathlib import Path
 
 
-def import_dashboard(dashboard_path: Path) -> bool:
-    """Import a single dashboard JSON file into Superset."""
-    try:
-        with open(dashboard_path) as f:
-            dashboard_data = json.load(f)
-
-        title = dashboard_data.get("title", dashboard_path.stem)
-        print(f"  → {title}")
-
-        # In production, you'd use Superset's REST API:
-        # curl -X POST http://localhost:8080/api/v1/dashboard/import \
-        #      -H "Authorization: Bearer <token>" \
-        #      -F "formData=@{path}"
-        #
-        # For now, document the manual import steps:
-        print(f"    Manual import steps:")
-        print(f"      1. Open http://localhost:8080/dashboard/")
-        print(f"      2. Click '+' → 'Import Dashboard'")
-        print(f"      3. Upload: {dashboard_path.name}")
-        print(f"      4. Select 'Overwrite' if prompted")
-        return True
-    except Exception as e:
-        print(f"  ✗ Error importing {dashboard_path}: {e}")
-        return False
-
-
-def main():
-    """Import all dashboards from infra/superset/dashboards/."""
+def print_import_instructions():
+    """Print instructions for importing dashboards."""
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
     dashboards_dir = repo_root / "infra" / "superset" / "dashboards"
 
-    if not dashboards_dir.exists():
-        print(f"Error: Dashboards directory not found at {dashboards_dir}")
-        return 1
-
-    print(f"Importing dashboards from {dashboards_dir}\n")
-
-    success_count = 0
-    fail_count = 0
+    print(__doc__)
+    print("\n" + "=" * 60)
+    print(f"Available dashboards in {dashboards_dir}:")
+    print("=" * 60)
 
     for dashboard_file in sorted(dashboards_dir.glob("*.json")):
-        if import_dashboard(dashboard_file):
-            success_count += 1
-        else:
-            fail_count += 1
+        title = dashboard_file.stem
+        print(f"  - {title}.json")
 
-    print(f"\n{'=' * 60}")
-    print(f"Summary: {success_count} succeeded, {fail_count} failed")
-
-    return 0 if fail_count == 0 else 1
+    print("\nTo import:")
+    print("  1. Go to http://localhost:8088/dashboard/")
+    print("  2. Click '+' → 'Import Dashboard'")
+    print("  3. Select a JSON file from the list above")
+    print("  4. Choose 'Overwrite' if prompted")
+    print("  5. Select the 'trino' database when prompted")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    print_import_instructions()
