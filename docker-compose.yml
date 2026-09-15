@@ -109,12 +109,9 @@ services:
       HIBERNATE_DIALECT: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
     ports:
       - "8080:8080"
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080 &>/dev/null || exit 1'"]
-      interval: 10s
-      timeout: 10s
-      retries: 30
-      start_period: 90s
+    # Note: hapiproject/hapi is a JRE-only image (no /bin/sh, no curl, no busybox),
+    # so an in-container shell healthcheck cannot run. Health is instead verified
+    # from the host by scripts/init_infra.py (polls /fhir/metadata).
 
   trino:
     build:
