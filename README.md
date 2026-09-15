@@ -158,10 +158,12 @@ healthcare-timeseries-lab/
 ├── infra/
 │   └── grafana/            # Milestone 6 (image, provisioning, dashboard)
 ├── notebooks/
-│   └── vitals_analysis.ipynb  # Milestone 6 (Jupyter analysis)
+│   ├── device_vs_true_spo2.ipynb  # Milestone 9 (observed vs true vitals)
+│   └── vitals_analysis.ipynb      # Milestone 6 (Jupyter analysis)
 ├── src/
 │   └── healthcare_timeseries_lab/
-│       ├── clinical/            # Milestone 5 (MySQL clinical store)
+│       ├── analysis/          # Milestone 9 (observed-vs-truth alignment + metrics)
+│       ├── clinical/          # Milestone 5 (MySQL clinical store)
 │       ├── device/              # Milestone 8 (fault layer)
 │       ├── fhir/                # Milestone 2
 │       ├── ground_truth/
@@ -190,6 +192,7 @@ Every milestone is validated end-to-end before commit and push.
 | M6 — Observability & analysis | Grafana (custom image) + `trino-datasource` plugin + provisioned "Lakehouse Vitals" dashboard; Jupyter notebook analyzing `lake.lakehouse.vitals` | open http://localhost:3000 (admin/admin); `uv run jupyter nbconvert --to notebook --execute notebooks/vitals_analysis.ipynb` |
 | M7 — Unified simulation → pipeline | One general pipeline runs any scenario (baseline or a clinical condition) through the physiology engine and streams it `simulate → Kafka (Avro) → Iceberg lakehouse → HAPI FHIR`; `run_baseline.py`/`run_hypoxemia.py` reuse the sim runners | `uv run python scripts/run_pipeline.py --scenario progressive_hypoxemia` → Kafka + lakehouse rows + FHIR Observations; `uv run python scripts/run_baseline.py` |
 | M8 — Device / fault layer | `DeviceSimulator` between true physiology and observed telemetry: per-channel measurement noise, precision/rounding, sensor latency, clock skew, dropout, drift, spikes, flatlines and disconnects (with `CONNECTED`/`DISCONNECTED` status and `GOOD`/`DEGRADED`/`POOR`/`LOST` quality); pipeline applies a bedside-monitor profile by default | `uv run python scripts/run_pipeline.py --scenario baseline` → observed events with noise/rounding and occasional dropouts; `--no-device` restores exact physiology |
+| M9 — Device-fidelity analysis | Jupyter notebook compares device-observed telemetry against the true physiological states: SpO2 overlay with dropout/spike markers, per-channel bias/MAE/RMSE, SpO2 error distribution, sensor latency, and a fault-window demo (SpO2 flatline + disconnect) using the `analysis` package (`align_observed_to_truth`, `error_metrics`) | `uv run python scripts/run_hypoxemia.py` writes observed + truth CSVs; `uv run jupyter nbconvert --to notebook --execute --inplace notebooks/device_vs_true_spo2.ipynb` |
 
 ## Development Environment
 

@@ -26,6 +26,7 @@ START_TIME = datetime(
 )
 
 OUTPUT_PATH = Path("output/progressive_hypoxemia.csv")
+TRUTH_OUTPUT_PATH = Path("output/progressive_hypoxemia_truth.csv")
 
 
 def make_patient() -> PatientProfile:
@@ -178,6 +179,8 @@ def write_csv(result: PipelineResult) -> None:
                 "temperature_c",
                 "systolic_bp_mmhg",
                 "diastolic_bp_mmhg",
+                "device_status",
+                "quality_code",
             ],
         )
 
@@ -200,6 +203,50 @@ def write_csv(result: PipelineResult) -> None:
                     "diastolic_bp_mmhg": (
                         event.diastolic_bp_mmhg
                     ),
+                    "device_status": event.device_status,
+                    "quality_code": event.quality_code,
+                }
+            )
+
+
+def write_truth_csv(result: PipelineResult) -> None:
+    TRUTH_OUTPUT_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    with TRUTH_OUTPUT_PATH.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as file:
+        writer = DictWriter(
+            file,
+            fieldnames=[
+                "event_time",
+                "sequence_number",
+                "heart_rate_bpm",
+                "spo2_pct",
+                "respiration_rate_bpm",
+                "temperature_c",
+                "systolic_bp_mmhg",
+                "diastolic_bp_mmhg",
+            ],
+        )
+
+        writer.writeheader()
+
+        for sequence_number, state in enumerate(result.states, start=1):
+            writer.writerow(
+                {
+                    "event_time": state.timestamp.isoformat(),
+                    "sequence_number": sequence_number,
+                    "heart_rate_bpm": state.heart_rate_bpm,
+                    "spo2_pct": state.spo2_pct,
+                    "respiration_rate_bpm": state.respiration_rate_bpm,
+                    "temperature_c": state.temperature_c,
+                    "systolic_bp_mmhg": state.systolic_bp_mmhg,
+                    "diastolic_bp_mmhg": state.diastolic_bp_mmhg,
                 }
             )
 
@@ -287,9 +334,11 @@ def execute() -> None:
     print_ground_truth(result)
 
     write_csv(result)
+    write_truth_csv(result)
 
     print()
     print(f"CSV written to: {OUTPUT_PATH}")
+    print(f"Truth CSV written to: {TRUTH_OUTPUT_PATH}")
 
 
 if __name__ == "__main__":

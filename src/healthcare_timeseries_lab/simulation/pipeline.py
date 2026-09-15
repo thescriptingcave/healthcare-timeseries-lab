@@ -21,6 +21,7 @@ from healthcare_timeseries_lab.fhir.bundle import push_vitals_bundle
 from healthcare_timeseries_lab.ground_truth.models import ClinicalGroundTruthEvent
 from healthcare_timeseries_lab.lakehouse.writer import insert_vitals
 from healthcare_timeseries_lab.patients.models import PatientProfile
+from healthcare_timeseries_lab.physiology.models import PhysiologicalState
 from healthcare_timeseries_lab.scenarios.engine import ConditionDefinition
 from healthcare_timeseries_lab.scenarios.library import progressive_hypoxemia
 from healthcare_timeseries_lab.simulation.models import SimulationRun
@@ -73,6 +74,7 @@ class PipelineConfig:
 class PipelineResult:
     run: SimulationRun
     events: list[VitalsTelemetryEvent]
+    states: list[PhysiologicalState]
     clinical_ground_truth: list[ClinicalGroundTruthEvent]
 
     produced: int
@@ -222,6 +224,7 @@ def run_pipeline(
     return PipelineResult(
         run=result.run,
         events=events,
+        states=result.states,
         clinical_ground_truth=ground_truth,
         produced=produced,
         consumed=len(records),
