@@ -48,7 +48,7 @@ class Settings:
     fhir_catalog: str = "fhir_pg"
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         _load_env()
         return cls(
             kafka_bootstrap_servers=_env("HTL_KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
