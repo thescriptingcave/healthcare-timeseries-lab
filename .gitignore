@@ -7,3 +7,12 @@ __pycache__/
 output/
 
 Untitled.ipynb
+
+# Local secrets
+.env
+
+# Local runtime data (Kafka/Spark checkpoints, local parquet, etc.)
+data/
+
+# Downloaded third-party jars (fetched by `make infra-libs`)
+infra/trino/lib/postgresql.jar
