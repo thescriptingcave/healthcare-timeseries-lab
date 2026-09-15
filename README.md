@@ -157,16 +157,38 @@ A later device layer will introduce:
 ```text
 healthcare-timeseries-lab/
 ├── scripts/
+│   ├── init_infra.py
+│   ├── provision_lakehouse.py
+│   ├── push_to_fhir.py
+│   ├── run_lakehouse_analytics.py
+│   ├── run_kafka_streaming.py
 │   └── run_baseline.py
 ├── src/
 │   └── healthcare_timeseries_lab/
+│       ├── clinical/            # Milestone 5 (MySQL clinical store)
+│       ├── fhir/                # Milestone 2
+│       ├── ground_truth/
+│       ├── lakehouse/           # Milestone 3
 │       ├── patients/
 │       ├── physiology/
 │       ├── runtime/
+│       ├── scenarios/
 │       ├── simulation/
+│       ├── streaming/           # Milestone 4 (Kafka + Avro)
 │       └── telemetry/
 └── tests/
 ```
+
+## Milestones
+
+Every milestone is validated end-to-end before commit and push.
+
+| Milestone | Result | How to observe |
+|-----------|--------|----------------|
+| M1 — Lakehouse infrastructure | Docker Compose lakehouse: Kafka, Schema Registry, MinIO, Postgres (FHIR + Iceberg), HAPI FHIR, Trino, InfluxDB | `docker compose ps` all healthy; `uv run python scripts/init_infra.py` |
+| M2 — FHIR vital-signs panel | Simulated vitals pushed as LOINC `85353-1` transaction Bundle to HAPI | `uv run python scripts/push_to_fhir.py` → 12 Observations live on `/fhir` |
+| M3 — Iceberg lakehouse | `lake.lakehouse.vitals` Iceberg table over JDBC catalog on Postgres; analytics read-back | `uv run python scripts/provision_lakehouse.py` + `uv run python scripts/run_lakehouse_analytics.py` |
+| M4 — Kafka vitals streaming | Simulated vitals flow as Avro through Kafka/Schema Registry into `lake.lakehouse.vitals` | `uv run python scripts/run_kafka_streaming.py` → produce/consume + Trino aggregation |
 
 ## Development Environment
 

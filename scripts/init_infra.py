@@ -87,6 +87,7 @@ def _trino_catalogs(cfg) -> set[str]:
         host=parsed.hostname,
         port=parsed.port,
         user=cfg.trino_user,
+        timezone="UTC",
     )
     cursor = connection.cursor()
     cursor.execute("SELECT catalog_name FROM system.metadata.catalogs")

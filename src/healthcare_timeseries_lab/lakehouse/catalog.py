@@ -26,6 +26,7 @@ def _trino_connection() -> trino_dbapi.Connection:
         host=parsed.hostname,
         port=parsed.port,
         user=cfg.trino_user,
+        timezone="UTC",
     )
 
 
