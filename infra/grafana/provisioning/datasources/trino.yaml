@@ -1,0 +1,16 @@
+# Datasource provisioning for the Trino plugin (contract verified against
+# trinodb/grafana-trino .config/provisioning/datasources/trino.yaml).
+# The plugin talks to the Trino coordinator's HTTP API directly.
+apiVersion: 1
+
+datasources:
+  - name: Trino
+    type: trino-datasource
+    access: proxy
+    uid: trino
+    url: http://trino:8080
+    isDefault: true
+    editable: true
+    jsonData:
+      enableImpersonation: false
+      tlsSkipVerify: false

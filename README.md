@@ -163,6 +163,10 @@ healthcare-timeseries-lab/
 │   ├── run_lakehouse_analytics.py
 │   ├── run_kafka_streaming.py
 │   └── run_baseline.py
+├── infra/
+│   └── grafana/            # Milestone 6 (image, provisioning, dashboard)
+├── notebooks/
+│   └── vitals_analysis.ipynb  # Milestone 6 (Jupyter analysis)
 ├── src/
 │   └── healthcare_timeseries_lab/
 │       ├── clinical/            # Milestone 5 (MySQL clinical store)
@@ -190,6 +194,7 @@ Every milestone is validated end-to-end before commit and push.
 | M3 — Iceberg lakehouse | `lake.lakehouse.vitals` Iceberg table over JDBC catalog on Postgres; analytics read-back | `uv run python scripts/provision_lakehouse.py` + `uv run python scripts/run_lakehouse_analytics.py` |
 | M4 — Kafka vitals streaming | Simulated vitals flow as Avro through Kafka/Schema Registry into `lake.lakehouse.vitals` | `uv run python scripts/run_kafka_streaming.py` → produce/consume + Trino aggregation |
 | M5 — MySQL clinical store | MySQL `clinical.patients`/`clinical.encounters` exposed via Trino `mysql` catalog; one query joins MySQL demographics + Iceberg vitals + FHIR resources | `uv run python scripts/run_clinical_store.py` → 3-catalog patient summary |
+| M6 — Observability & analysis | Grafana (custom image) + `trino-datasource` plugin + provisioned "Lakehouse Vitals" dashboard; Jupyter notebook analyzing `lake.lakehouse.vitals` | open http://localhost:3000 (admin/admin); `uv run jupyter nbconvert --to notebook --execute notebooks/vitals_analysis.ipynb` |
 
 ## Development Environment
 
