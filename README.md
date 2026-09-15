@@ -259,7 +259,8 @@ uv run ruff check .
 **Superset** (M10):
 - Run `docker compose up superset`
 - Access at http://localhost:8088 (admin/admin)
-- Import dashboards from `infra/superset/dashboards/`
+- Import dashboards: `uv run python scripts/import_superset_dashboards.py`
+- Or manually: Dashboard → '+' → 'Import Dashboard' → upload JSON
 - Configure Trino connection: `trino://trino:trino@localhost:8080/trino`
 
 Run the baseline simulator:

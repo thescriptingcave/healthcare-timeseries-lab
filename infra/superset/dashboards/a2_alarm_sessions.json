@@ -6,9 +6,7 @@
   "queries": [
     {
       "label": "Alarm Sessions Query",
-      "sql": "WITH hits AS (\n    SELECT\n        event_time,\n        spo2_pct\n    FROM lake.lakehouse.vitals\n    WHERE patient_id = '55555555-5555-5555-5555-555555555555'\n      AND spo2_pct < 90\n),
-gapped AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        date_diff(\n            'second',\n            LAG(event_time, 1) OVER (ORDER BY event_time),\n            event_time\n        ) AS seconds_since_last_alarm\n    FROM hits\n),
-sessions AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        SUM(\n            CASE WHEN seconds_since_last_alarm IS NULL\n                  OR seconds_since_last_alarm >= 120\n                  THEN 1 ELSE 0 END\n        ) OVER (\n            ORDER BY event_time\n            ROWS UNBOUNDED PRECEDING\n        ) AS alarm_session\n    FROM gapped\n)\nSELECT\n    MIN(event_time)     AS alarm_started,\n    MAX(event_time)     AS alarm_ended,\n    MIN(spo2_pct)       AS lowest_spo2,\n    ROUND(AVG(spo2_pct), 1) AS avg_spo2,\n    COUNT(*)            AS alert_readings\nFROM sessions\nGROUP BY alarm_session\nORDER BY alarm_started"
+      "sql": "WITH hits AS (\n    SELECT\n        event_time,\n        spo2_pct\n    FROM lake.lakehouse.vitals\n    WHERE patient_id = '55555555-5555-5555-5555-555555555555'\n      AND spo2_pct < 90\n),\ngapped AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        date_diff(\n            'second',\n            LAG(event_time, 1) OVER (ORDER BY event_time),\n            event_time\n        ) AS seconds_since_last_alarm\n    FROM hits\n),\nsessions AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        SUM(\n            CASE WHEN seconds_since_last_alarm IS NULL\n                  OR seconds_since_last_alarm >= 120\n                  THEN 1 ELSE 0 END\n        ) OVER (\n            ORDER BY event_time\n            ROWS UNBOUNDED PRECEDING\n        ) AS alarm_session\n    FROM gapped\n)\nSELECT\n    MIN(event_time)     AS alarm_started,\n    MAX(event_time)     AS alarm_ended,\n    MIN(spo2_pct)       AS lowest_spo2,\n    ROUND(AVG(spo2_pct), 1) AS avg_spo2,\n    COUNT(*)            AS alert_readings\nFROM sessions\nGROUP BY alarm_session\nORDER BY alarm_started"
     }
   ],
   "charts": [
@@ -16,22 +14,51 @@ sessions AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        SUM(\
       "id": 1,
       "type": "table",
       "title": "Alarm Sessions Summary",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "query": "Alarm Sessions Query"
     },
     {
       "id": 2,
       "type": "timeseries",
       "title": "Alarm Session Timeline",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "query": "Alarm Sessions Query",
-      "metrics": ["lowest_spo2", "avg_spo2"],
-      "timeColumns": ["alarm_started"],
-      "seriesColumns": ["alarm_session"]
+      "metrics": [
+        "lowest_spo2",
+        "avg_spo2"
+      ],
+      "timeColumns": [
+        "alarm_started"
+      ],
+      "seriesColumns": [
+        "alarm_session"
+      ]
     }
   ],
   "layout": [
-    { "i": "chart-1", "x": 0, "y": 0, "w": 12, "h": 8 },
-    { "i": "chart-2", "x": 12, "y": 0, "w": 12, "h": 8 }
+    {
+      "i": "chart-1",
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 8
+    },
+    {
+      "i": "chart-2",
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 8
+    }
   ]
 }
