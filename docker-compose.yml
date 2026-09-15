@@ -133,6 +133,28 @@ services:
       retries: 30
       start_period: 45s
 
+  mysql-clinical:
+    image: mysql:8.0.42
+    container_name: htl-mysql-clinical
+    environment:
+      MYSQL_ROOT_PASSWORD: clinical
+      MYSQL_DATABASE: clinical
+      MYSQL_USER: clinical
+      MYSQL_PASSWORD: clinical
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_clinical_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
   influxdb:
     image: influxdb:2.7
     container_name: htl-influxdb
@@ -160,3 +182,4 @@ volumes:
   pg_fhir_data:
   pg_iceberg_data:
   influxdb2_data:
+  mysql_clinical_data:

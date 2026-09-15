@@ -189,6 +189,7 @@ Every milestone is validated end-to-end before commit and push.
 | M2 — FHIR vital-signs panel | Simulated vitals pushed as LOINC `85353-1` transaction Bundle to HAPI | `uv run python scripts/push_to_fhir.py` → 12 Observations live on `/fhir` |
 | M3 — Iceberg lakehouse | `lake.lakehouse.vitals` Iceberg table over JDBC catalog on Postgres; analytics read-back | `uv run python scripts/provision_lakehouse.py` + `uv run python scripts/run_lakehouse_analytics.py` |
 | M4 — Kafka vitals streaming | Simulated vitals flow as Avro through Kafka/Schema Registry into `lake.lakehouse.vitals` | `uv run python scripts/run_kafka_streaming.py` → produce/consume + Trino aggregation |
+| M5 — MySQL clinical store | MySQL `clinical.patients`/`clinical.encounters` exposed via Trino `mysql` catalog; one query joins MySQL demographics + Iceberg vitals + FHIR resources | `uv run python scripts/run_clinical_store.py` → 3-catalog patient summary |
 
 ## Development Environment
 
