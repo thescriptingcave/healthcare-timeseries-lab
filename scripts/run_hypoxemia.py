@@ -4,6 +4,9 @@ from pathlib import Path
 from statistics import mean, stdev
 from uuid import UUID
 
+from healthcare_timeseries_lab.device import (
+    default_bedside_monitor_config,
+)
 from healthcare_timeseries_lab.patients.models import PatientProfile
 from healthcare_timeseries_lab.simulation.pipeline import (
     PipelineConfig,
@@ -51,6 +54,7 @@ def make_config() -> PipelineConfig:
         duration=timedelta(hours=6),
         step=timedelta(seconds=5),
         seed=42,
+        device=default_bedside_monitor_config(),
     )
 
 

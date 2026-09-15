@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
+from healthcare_timeseries_lab.device.models import DeviceSimulationConfig
 from healthcare_timeseries_lab.fhir.bundle import push_vitals_bundle
 from healthcare_timeseries_lab.ground_truth.models import ClinicalGroundTruthEvent
 from healthcare_timeseries_lab.lakehouse.writer import insert_vitals
@@ -65,6 +66,7 @@ class PipelineConfig:
     topic: str = TOPIC_DEFAULT
     encounter_id: str | None = None
     lake_catalog: str = "lake"
+    device: DeviceSimulationConfig | None = None
 
 
 @dataclass(frozen=True)
@@ -128,6 +130,7 @@ def run_pipeline(
                 scenario_name=config.scenario_name,
                 scenario_version=config.scenario_version,
             ),
+            device=config.device,
         )
         events = result.events
         ground_truth: list[ClinicalGroundTruthEvent] = []
@@ -151,6 +154,7 @@ def run_pipeline(
                 seed=config.seed,
             ),
             conditions=condition_factory(),
+            device=config.device,
         )
         events = result.events
         ground_truth = result.clinical_ground_truth
@@ -166,16 +170,34 @@ def run_pipeline(
     )
 
     # The consumer reads the whole topic from ``earliest`` without committing,
-    # so the read window must be large enough to walk past any older backlog
-    # before our newest messages appear.
-    read_window = max(len(events) * 4 + 1000, 500)
+    # so it must walk past any older backlog before our newest messages appear.
+    # The backlog can be much larger than today's run (e.g. a long demo from a
+    # previous day), so retry with a growing read window until the current run
+    # is fully covered.
+    expected = len(events)
+    window = max(expected * 4 + 1000, 500)
+    records: list[dict] = []
 
-    records = select_newest(
-        consumer(max_messages=read_window),
-        patient_id=config.patient.patient_id,
-        simulation_id=config.simulation_id,
-        count=len(events),
-    )
+    for _ in range(12):
+        candidates = select_newest(
+            consumer(max_messages=window),
+            patient_id=config.patient.patient_id,
+            simulation_id=config.simulation_id,
+            count=expected,
+        )
+        records = candidates
+        if len(records) >= expected:
+            break
+        window *= 2
+
+    if records == [] and expected > 0:
+        raise ValueError(
+            "pipeline could not find the simulated events on the topic; "
+            "check that Kafka is healthy and the consumer can reach the tail"
+        )
+
+    if not records:
+        raise ValueError("nothing to insert")
 
     row_inserter = insert or insert_vitals
     inserted = row_inserter(records)

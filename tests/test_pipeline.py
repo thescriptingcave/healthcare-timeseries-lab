@@ -109,6 +109,45 @@ def test_pipeline_baseline_streams_all_stages() -> None:
     assert result.clinical_ground_truth == []
 
 
+def test_pipeline_reads_past_large_stale_backlog() -> None:
+    config = make_config(duration=timedelta(minutes=2))
+    produced: dict[str, list[VitalsTelemetryEvent]] = {"events": []}
+
+    def produce(evts):
+        produced["events"] = list(evts)
+        return len(evts)
+
+    stale = [
+        {
+            "patient_id": "88888888-8888-8888-8888-888888888888",
+            "simulation_id": "99999999-9999-9999-9999-999999999999",
+        }
+        for _ in range(4000)
+    ]
+
+    def consume(max_messages):
+        combined = stale + records_for(produced["events"])
+        return combined[:max_messages]
+
+    def insert(records):
+        return len(records)
+
+    def push(evts):
+        return "201", [], 2 + len(evts)
+
+    result = run_pipeline(
+        config=config,
+        produce=produce,
+        consume=consume,
+        insert=insert,
+        push_fhir=push,
+    )
+
+    assert result.produced == 24
+    assert result.lakehouse_inserted == 24
+    assert len(result.events) == 24
+
+
 def test_pipeline_scenario_produces_ground_truth() -> None:
     config = make_config(
         scenario="progressive_hypoxemia",

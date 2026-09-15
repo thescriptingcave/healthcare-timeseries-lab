@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from random import Random
 from uuid import UUID, uuid5
 
+from healthcare_timeseries_lab.device.models import DeviceSimulationConfig
+from healthcare_timeseries_lab.device.simulator import DeviceSimulator
 from healthcare_timeseries_lab.patients.models import PatientProfile
 from healthcare_timeseries_lab.physiology.engine import PhysiologyEngine
 from healthcare_timeseries_lab.physiology.models import PhysiologicalState
@@ -37,12 +39,14 @@ class BaselineSimulationConfig:
 class BaselineSimulationResult:
     run: SimulationRun
     events: list[VitalsTelemetryEvent]
+    states: list[PhysiologicalState]
 
 
 def run_baseline_simulation(
     *,
     patient: PatientProfile,
     config: BaselineSimulationConfig,
+    device: DeviceSimulationConfig | None = None,
 ) -> BaselineSimulationResult:
     if config.duration <= timedelta(0):
         raise ValueError("duration must be greater than zero")
@@ -71,6 +75,12 @@ def run_baseline_simulation(
 
     engine = PhysiologyEngine(Random(config.seed))
 
+    simulator = (
+        DeviceSimulator(config=device)
+        if device is not None
+        else None
+    )
+
     state = PhysiologicalState(
         timestamp=clock.now,
         heart_rate_bpm=patient.baseline_heart_rate_bpm,
@@ -84,6 +94,7 @@ def run_baseline_simulation(
     observation_count = config.duration // config.step
 
     events: list[VitalsTelemetryEvent] = []
+    states: list[PhysiologicalState] = []
 
     for sequence_number in range(1, observation_count + 1):
         timestamp = clock.advance()
@@ -94,23 +105,38 @@ def run_baseline_simulation(
             timestamp=timestamp,
         )
 
+        states.append(state)
+
         event_id = uuid5(
             EVENT_NAMESPACE,
             f"{config.simulation_id}:{config.device_id}:{sequence_number}",
         )
 
-        event = VitalsTelemetryEvent.from_physiological_state(
-            event_id=event_id,
-            simulation_id=config.simulation_id,
-            patient_id=patient.patient_id,
-            device_id=config.device_id,
-            sequence_number=sequence_number,
-            state=state,
-        )
+        if simulator is not None:
+            event = simulator.observe(
+                state=state,
+                simulation_id=config.simulation_id,
+                patient_id=patient.patient_id,
+                device_id=config.device_id,
+                sequence_number=sequence_number,
+                event_id=event_id,
+            )
+            if event is None:
+                continue
+        else:
+            event = VitalsTelemetryEvent.from_physiological_state(
+                event_id=event_id,
+                simulation_id=config.simulation_id,
+                patient_id=patient.patient_id,
+                device_id=config.device_id,
+                sequence_number=sequence_number,
+                state=state,
+            )
 
         events.append(event)
 
     return BaselineSimulationResult(
         run=simulation_run,
         events=events,
+        states=states,
     )

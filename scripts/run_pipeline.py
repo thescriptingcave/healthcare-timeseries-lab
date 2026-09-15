@@ -1,10 +1,12 @@
-"""Unified simulation -> pipeline runner (Milestone 7).
+"""Unified simulation -> pipeline runner (Milestones 7-8).
 
 Simulates a scenario (``baseline`` or a clinical condition from the scenario
 library), then streams the result through:
 
     Kafka (Avro + Schema Registry) -> Iceberg lakehouse -> HAPI FHIR
 
+By default an optional device/fault layer (Milestone 8) sits between the true
+physiology and the observed telemetry; pass ``--no-device`` to skip it.
 This supersedes the narrow ``run_kafka_streaming.py`` demo: it supports any
 registered scenario and always pushes FHIR Observations for the simulated
 window.
@@ -22,6 +24,9 @@ import sys
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from healthcare_timeseries_lab.device import (
+    default_bedside_monitor_config,
+)
 from healthcare_timeseries_lab.patients.models import PatientProfile
 from healthcare_timeseries_lab.simulation.pipeline import (
     SCENARIOS,
@@ -89,6 +94,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=SIMULATION_ID,
         help="simulation UUID (default: deterministic constant)",
     )
+    parser.add_argument(
+        "--no-device",
+        action="store_true",
+        help="disable the device/fault layer (measure noise, latency, ...)",
+    )
     return parser.parse_args(argv)
 
 
@@ -105,13 +115,20 @@ def run(args: argparse.Namespace | None = None) -> None:
         duration=timedelta(minutes=args.duration_minutes),
         step=timedelta(seconds=args.step_seconds),
         seed=args.seed,
+        device=(
+            None
+            if args.no_device
+            else default_bedside_monitor_config()
+        ),
     )
 
-    print("== Milestone 7: unified simulation pipeline ==")
+    print("== Milestone 8: unified pipeline with device layer ==")
     print(f"  scenario:   {config.scenario_name}")
     print(f"  duration:   {config.duration}")
     print(f"  step:       {config.step}")
     print(f"  seed:       {config.seed}")
+    print(f"  device:     "
+          f"{'disabled' if config.device is None else 'bedside monitor'}")
     print()
 
     result = run_pipeline(config=config)
@@ -139,7 +156,7 @@ def run(args: argparse.Namespace | None = None) -> None:
             )
 
     print()
-    print(f"MILESTONE 7 PIPELINE OK ({config.scenario_name})")
+    print(f"MILESTONE 8 PIPELINE OK ({config.scenario_name})")
 
 
 if __name__ == "__main__":
