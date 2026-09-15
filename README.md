@@ -30,7 +30,7 @@ Device / Fault Layer
 Observed Telemetry
 ```
 
-The device and fault layers are planned but are not yet implemented.
+The device and fault layer (Milestone 8) implements this split.
 
 ## Sprint 0
 
@@ -137,36 +137,62 @@ VitalsTelemetryEvent
    (observed event)
 ```
 
-During Sprint 0, observed telemetry directly mirrors physiological state.
-
-A later device layer will introduce:
-
-* measurement noise
-* precision and rounding
-* sensor latency
-* dropout
-* drift
-* spikes
-* flatlines
-* noisy signals
-* clock skew
-* device disconnects
+During Sprint 0, observed telemetry directly mirrored physiological state.
+Milestone 8 added an optional device/fault layer between them (send
+`DeviceSimulationConfig` to a runner or the pipeline); with no device config,
+telemetry still mirrors physiology exactly.
 
 ## Project Structure
 
 ```text
 healthcare-timeseries-lab/
 ├── scripts/
-│   └── run_baseline.py
+│   ├── init_infra.py
+│   ├── provision_lakehouse.py
+│   ├── push_to_fhir.py
+│   ├── run_baseline.py
+│   ├── run_clinical_store.py
+│   ├── run_hypoxemia.py
+│   ├── run_lakehouse_analytics.py
+│   └── run_pipeline.py              # Milestones 7-8 (unified pipeline + device)
+├── infra/
+│   └── grafana/            # Milestone 6 (image, provisioning, dashboard)
+├── notebooks/
+│   ├── device_vs_true_spo2.ipynb  # Milestone 9 (observed vs true vitals)
+│   └── vitals_analysis.ipynb      # Milestone 6 (Jupyter analysis)
 ├── src/
 │   └── healthcare_timeseries_lab/
+│       ├── analysis/          # Milestone 9 (observed-vs-truth alignment + metrics)
+│       ├── clinical/          # Milestone 5 (MySQL clinical store)
+│       ├── device/              # Milestone 8 (fault layer)
+│       ├── fhir/                # Milestone 2
+│       ├── ground_truth/
+│       ├── lakehouse/           # Milestone 3
 │       ├── patients/
 │       ├── physiology/
 │       ├── runtime/
-│       ├── simulation/
+│       ├── scenarios/
+│       ├── simulation/          # Milestone 7 (pipeline orchestrator)
+│       ├── streaming/           # Milestone 4 (Kafka + Avro)
 │       └── telemetry/
 └── tests/
 ```
+
+## Milestones
+
+Every milestone is validated end-to-end before commit and push.
+
+| Milestone | Result | How to observe |
+|-----------|--------|----------------|
+| M1 — Lakehouse infrastructure | Docker Compose lakehouse: Kafka, Schema Registry, MinIO, Postgres (FHIR + Iceberg), HAPI FHIR, Trino, InfluxDB | `docker compose ps` all healthy; `uv run python scripts/init_infra.py` |
+| M2 — FHIR vital-signs panel | Simulated vitals pushed as LOINC `85353-1` transaction Bundle to HAPI | `uv run python scripts/push_to_fhir.py` → 12 Observations live on `/fhir` |
+| M3 — Iceberg lakehouse | `lake.lakehouse.vitals` Iceberg table over JDBC catalog on Postgres; analytics read-back | `uv run python scripts/provision_lakehouse.py` + `uv run python scripts/run_lakehouse_analytics.py` |
+| M4 — Kafka vitals streaming | Simulated vitals flow as Avro through Kafka/Schema Registry into `lake.lakehouse.vitals` | `uv run python scripts/run_pipeline.py --scenario baseline` (supersedes the M4 demo) → produce/consume + Trino aggregation |
+| M5 — MySQL clinical store | MySQL `clinical.patients`/`clinical.encounters` exposed via Trino `mysql` catalog; one query joins MySQL demographics + Iceberg vitals + FHIR resources | `uv run python scripts/run_clinical_store.py` → 3-catalog patient summary |
+| M6 — Observability & analysis | Grafana (custom image) + `trino-datasource` plugin + provisioned "Lakehouse Vitals" dashboard; Jupyter notebook analyzing `lake.lakehouse.vitals` | open http://localhost:3000 (admin/admin); `uv run jupyter nbconvert --to notebook --execute notebooks/vitals_analysis.ipynb` |
+| M7 — Unified simulation → pipeline | One general pipeline runs any scenario (baseline or a clinical condition) through the physiology engine and streams it `simulate → Kafka (Avro) → Iceberg lakehouse → HAPI FHIR`; `run_baseline.py`/`run_hypoxemia.py` reuse the sim runners | `uv run python scripts/run_pipeline.py --scenario progressive_hypoxemia` → Kafka + lakehouse rows + FHIR Observations; `uv run python scripts/run_baseline.py` |
+| M8 — Device / fault layer | `DeviceSimulator` between true physiology and observed telemetry: per-channel measurement noise, precision/rounding, sensor latency, clock skew, dropout, drift, spikes, flatlines and disconnects (with `CONNECTED`/`DISCONNECTED` status and `GOOD`/`DEGRADED`/`POOR`/`LOST` quality); pipeline applies a bedside-monitor profile by default | `uv run python scripts/run_pipeline.py --scenario baseline` → observed events with noise/rounding and occasional dropouts; `--no-device` restores exact physiology |
+| M9 — Device-fidelity analysis | Jupyter notebook compares device-observed telemetry against the true physiological states: SpO2 overlay with dropout/spike markers, per-channel bias/MAE/RMSE, SpO2 error distribution, sensor latency, and a fault-window demo (SpO2 flatline + disconnect) using the `analysis` package (`align_observed_to_truth`, `error_metrics`) | `uv run python scripts/run_hypoxemia.py` writes observed + truth CSVs; `uv run jupyter nbconvert --to notebook --execute --inplace notebooks/device_vs_true_spo2.ipynb` |
 
 ## Development Environment
 
@@ -213,8 +239,6 @@ Not yet implemented:
 * scenario phases
 * interventions
 * patient response profiles
-* device simulation
-* sensor faults
 * simulation-run metadata
 * ground-truth event datasets
 * Parquet persistence

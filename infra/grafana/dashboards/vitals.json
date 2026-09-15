@@ -1,0 +1,61 @@
+{
+  "id": null,
+  "uid": "lakehouse-vitals",
+  "title": "Lakehouse Vitals",
+  "tags": ["htl", "lakehouse"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 0,
+  "editable": true,
+  "refresh": "",
+  "time": {
+    "from": "2026-01-01T00:00:00.000Z",
+    "to": "2026-01-01T00:02:00.000Z"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Heart rate over time",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "line" }, "unit": "bpm" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "SELECT event_time AS time, heart_rate_bpm AS \"Heart rate\" FROM lake.lakehouse.vitals ORDER BY event_time",
+          "rawQuery": true,
+          "format": 0
+        }
+      ],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Oxygen saturation over time",
+      "datasource": { "type": "trino-datasource", "uid": "trino" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "line" }, "unit": "percent" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "trino-datasource", "uid": "trino" },
+          "rawSql": "SELECT event_time AS time, spo2_pct AS \"SpO2\" FROM lake.lakehouse.vitals ORDER BY event_time",
+          "rawQuery": true,
+          "format": 0
+        }
+      ],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": { "list": [] }
+}

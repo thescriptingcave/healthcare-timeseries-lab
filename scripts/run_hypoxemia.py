@@ -4,12 +4,14 @@ from pathlib import Path
 from statistics import mean, stdev
 from uuid import UUID
 
+from healthcare_timeseries_lab.device import (
+    default_bedside_monitor_config,
+)
 from healthcare_timeseries_lab.patients.models import PatientProfile
-from healthcare_timeseries_lab.scenarios.library import progressive_hypoxemia
-from healthcare_timeseries_lab.simulation.scenario_runner import (
-    ScenarioSimulationConfig,
-    ScenarioSimulationResult,
-    run_scenario_simulation,
+from healthcare_timeseries_lab.simulation.pipeline import (
+    PipelineConfig,
+    PipelineResult,
+    run_pipeline,
 )
 
 PATIENT_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -24,6 +26,7 @@ START_TIME = datetime(
 )
 
 OUTPUT_PATH = Path("output/progressive_hypoxemia.csv")
+TRUTH_OUTPUT_PATH = Path("output/progressive_hypoxemia_truth.csv")
 
 
 def make_patient() -> PatientProfile:
@@ -41,8 +44,9 @@ def make_patient() -> PatientProfile:
     )
 
 
-def make_config() -> ScenarioSimulationConfig:
-    return ScenarioSimulationConfig(
+def make_config() -> PipelineConfig:
+    return PipelineConfig(
+        patient=make_patient(),
         simulation_id=SIMULATION_ID,
         device_id=DEVICE_ID,
         scenario_name="progressive_hypoxemia",
@@ -51,11 +55,12 @@ def make_config() -> ScenarioSimulationConfig:
         duration=timedelta(hours=6),
         step=timedelta(seconds=5),
         seed=42,
+        device=default_bedside_monitor_config(),
     )
 
 
 def events_between(
-    result: ScenarioSimulationResult,
+    result: PipelineResult,
     start: timedelta,
     end: timedelta,
 ):
@@ -79,7 +84,7 @@ def summarize_signal(values: list[float]) -> str:
 
 
 def print_window_summary(
-    result: ScenarioSimulationResult,
+    result: PipelineResult,
     *,
     label: str,
     start: timedelta,
@@ -152,7 +157,7 @@ def print_window_summary(
     )
 
 
-def write_csv(result: ScenarioSimulationResult) -> None:
+def write_csv(result: PipelineResult) -> None:
     OUTPUT_PATH.parent.mkdir(
         parents=True,
         exist_ok=True,
@@ -174,6 +179,8 @@ def write_csv(result: ScenarioSimulationResult) -> None:
                 "temperature_c",
                 "systolic_bp_mmhg",
                 "diastolic_bp_mmhg",
+                "device_status",
+                "quality_code",
             ],
         )
 
@@ -196,13 +203,55 @@ def write_csv(result: ScenarioSimulationResult) -> None:
                     "diastolic_bp_mmhg": (
                         event.diastolic_bp_mmhg
                     ),
+                    "device_status": event.device_status,
+                    "quality_code": event.quality_code,
                 }
             )
 
 
-def print_ground_truth(
-    result: ScenarioSimulationResult,
-) -> None:
+def write_truth_csv(result: PipelineResult) -> None:
+    TRUTH_OUTPUT_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    with TRUTH_OUTPUT_PATH.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as file:
+        writer = DictWriter(
+            file,
+            fieldnames=[
+                "event_time",
+                "sequence_number",
+                "heart_rate_bpm",
+                "spo2_pct",
+                "respiration_rate_bpm",
+                "temperature_c",
+                "systolic_bp_mmhg",
+                "diastolic_bp_mmhg",
+            ],
+        )
+
+        writer.writeheader()
+
+        for sequence_number, state in enumerate(result.states, start=1):
+            writer.writerow(
+                {
+                    "event_time": state.timestamp.isoformat(),
+                    "sequence_number": sequence_number,
+                    "heart_rate_bpm": state.heart_rate_bpm,
+                    "spo2_pct": state.spo2_pct,
+                    "respiration_rate_bpm": state.respiration_rate_bpm,
+                    "temperature_c": state.temperature_c,
+                    "systolic_bp_mmhg": state.systolic_bp_mmhg,
+                    "diastolic_bp_mmhg": state.diastolic_bp_mmhg,
+                }
+            )
+
+
+def print_ground_truth(result: PipelineResult) -> None:
     print()
     print("Clinical Ground Truth")
     print("---------------------")
@@ -216,12 +265,8 @@ def print_ground_truth(
         )
 
 
-def main() -> None:
-    result = run_scenario_simulation(
-        patient=make_patient(),
-        config=make_config(),
-        conditions=progressive_hypoxemia(),
-    )
+def execute() -> None:
+    result = run_pipeline(config=make_config())
 
     print("Progressive Hypoxemia Simulation")
     print("================================")
@@ -232,6 +277,17 @@ def main() -> None:
     print(f"Observations:  {len(result.events)}")
     print(f"Start:         {result.run.start_time}")
     print(f"End:           {result.run.end_time}")
+    print(f"Kafka:         produced {result.produced}")
+    print(f"Lakehouse:     {result.lakehouse_inserted} rows")
+    print(
+        "FHIR:          "
+        f"{result.fhir_transactions} entries (status {result.fhir_status})"
+    )
+
+    for issue in result.fhir_issues:
+        if "information/" in issue:
+            continue
+        print(f"  FHIR issue: {issue}")
 
     print_window_summary(
         result,
@@ -278,10 +334,12 @@ def main() -> None:
     print_ground_truth(result)
 
     write_csv(result)
+    write_truth_csv(result)
 
     print()
     print(f"CSV written to: {OUTPUT_PATH}")
+    print(f"Truth CSV written to: {TRUTH_OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
-    main()
+    execute()

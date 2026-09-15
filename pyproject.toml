@@ -4,7 +4,19 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "boto3>=1.43.94",
+    "confluent-kafka[avro]>=2.15.1",
+    "fastavro>=1.12.2",
+    "fhir-resources>=8.3.0",
+    "influxdb-client>=1.50.0",
+    "minio>=7.2.20",
+    "psycopg[binary]>=3.3.5",
+    "pyspark>=4.0,<5",
+    "python-dotenv>=1.2.3",
+    "requests>=2.34.2",
+    "trino>=0.339.0",
+]
 
 [project.scripts]
 healthcare-timeseries-lab = "healthcare_timeseries_lab:main"
