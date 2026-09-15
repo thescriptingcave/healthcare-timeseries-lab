@@ -32,7 +32,7 @@ services:
     volumes:
       - ./infra/superset/instance:/app/instance
       - ./infra/superset/dashboards:/app/dashboards:ro
-    entrypoint: /bin/sh -c "superset db upgrade heads && superset init && superset run -h 0.0.0.0 -p 8088 --with-threads"
+    entrypoint: /bin/sh -c "superset db upgrade heads && superset init && superset fab create-admin --username admin --email admin@example.com --firstname Admin --lastname User --password admin || true && superset run -h 0.0.0.0 -p 8088 --with-threads"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8088/login/ || exit 1"]
       interval: 10s
