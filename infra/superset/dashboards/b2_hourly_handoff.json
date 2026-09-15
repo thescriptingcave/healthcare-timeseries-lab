@@ -1,0 +1,35 @@
+{
+  "title": "B2: Hourly Handoff Summary",
+  "description": "Beginner lesson: Hourly handoff summary showing average vitals for monitored patients",
+  "database": "trino",
+  "schema": "lakehouse",
+  "queries": [
+    {
+      "label": "Hourly Handoff Query",
+      "sql": "WITH hourly AS (\n    SELECT\n        patient_id,\n        date_trunc('hour', event_time) AS hour_bucket,\n        ROUND(AVG(heart_rate_bpm), 1)       AS avg_heart_rate,\n        ROUND(AVG(spo2_pct), 1)             AS avg_spo2,\n        ROUND(AVG(respiration_rate_bpm), 1) AS avg_respiration,\n        ROUND(AVG(temperature_c), 2)        AS avg_temperature,\n        COUNT(*)                            AS readings\n    FROM lake.lakehouse.vitals\n    WHERE patient_id IN (\n        '55555555-5555-5555-5555-555555555555',\n        '66666666-6666-6666-6666-666666666666',\n        '77777777-7777-7777-7777-777777777777'\n    )\n    GROUP BY 1, 2\n)\nSELECT\n    h.hour_bucket AS shift_hour,\n    p.full_name,\n    h.avg_heart_rate,\n    h.avg_spo2,\n    h.avg_respiration,\n    h.avg_temperature,\n    h.readings\nFROM hourly h\nJOIN mysql.clinical.patients p\n    ON p.patient_id = h.patient_id\nORDER BY h.hour_bucket, p.full_name"
+    }
+  ],
+  "charts": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Hourly Vitals Summary",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "query": "Hourly Handoff Query"
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Hourly SpO2 Trend",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "query": "Hourly Handoff Query",
+      "metrics": ["avg_spo2"],
+      "timeColumns": ["shift_hour"],
+      "seriesColumns": ["full_name"]
+    }
+  ],
+  "layout": [
+    { "i": "chart-1", "x": 0, "y": 0, "w": 12, "h": 8 },
+    { "i": "chart-2", "x": 12, "y": 0, "w": 12, "h": 8 }
+  ]
+}

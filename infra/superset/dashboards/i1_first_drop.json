@@ -1,0 +1,35 @@
+{
+  "title": "I1: First Drop Detection",
+  "description": "Intermediate lesson: Find the moment patient started to deteriorate - first SpO2 crossing below 94%",
+  "database": "trino",
+  "schema": "lakehouse",
+  "queries": [
+    {
+      "label": "First Drop Query",
+      "sql": "WITH tagged AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        LAG(spo2_pct, 1) OVER (\n            PARTITION BY patient_id\n            ORDER BY event_time\n        ) AS previous_spo2\n    FROM lake.lakehouse.vitals\n    WHERE patient_id = '55555555-5555-5555-5555-555555555555'\n)\nSELECT\n    event_time,\n    ROUND(previous_spo2, 1) AS spo2_before,\n    ROUND(spo2_pct, 1)      AS spo2_after\nFROM tagged\nWHERE previous_spo2 >= 94 AND spo2_pct < 94\nORDER BY event_time"
+    }
+  ],
+  "charts": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "First Desaturation Events",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "query": "First Drop Query"
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "SpO2 Timeline with Threshold",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "query": "First Drop Query",
+      "metrics": ["spo2_after"],
+      "timeColumns": ["event_time"],
+      "threshold": 94
+    }
+  ],
+  "layout": [
+    { "i": "chart-1", "x": 0, "y": 0, "w": 12, "h": 8 },
+    { "i": "chart-2", "x": 12, "y": 0, "w": 12, "h": 8 }
+  ]
+}

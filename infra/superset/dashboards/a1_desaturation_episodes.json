@@ -1,0 +1,36 @@
+{
+  "title": "A1: Desaturation Episodes",
+  "description": "Advanced lesson: Count and analyze distinct desaturation episodes using gap-and-islands pattern",
+  "database": "trino",
+  "schema": "lakehouse",
+  "queries": [
+    {
+      "label": "Desaturation Episodes Query",
+      "sql": "WITH flagged AS (\n    SELECT\n        patient_id,\n        event_time,\n        spo2_pct,\n        CASE WHEN spo2_pct < 94 THEN 1 ELSE 0 END AS is_low,\n        LAG(CASE WHEN spo2_pct < 94 THEN 1 ELSE 0 END, 1) OVER (\n            PARTITION BY patient_id\n            ORDER BY event_time\n        ) AS previous_is_low\n    FROM lake.lakehouse.vitals\n    WHERE patient_id = '55555555-5555-5555-5555-555555555555'\n),
+islands AS (\n    SELECT\n        event_time,\n        spo2_pct,\n        is_low,\n        SUM(\n            CASE WHEN is_low = 1\n                  AND (previous_is_low IS NULL OR previous_is_low = 0)\n                  THEN 1 ELSE 0 END\n        ) OVER (\n            PARTITION BY patient_id\n            ORDER BY event_time\n            ROWS UNBOUNDED PRECEDING\n        ) AS episode_id\n    FROM flagged\n)\nSELECT\n    MIN(event_time)                                    AS episode_start,\n    MAX(event_time)                                    AS episode_end,\n    date_diff('second', MIN(event_time), MAX(event_time))\n                                                     AS duration_seconds,\n    COUNT(*)                                          AS readings,\n    ROUND(MIN(spo2_pct), 1)                           AS lowest_spo2,\n    ROUND(AVG(spo2_pct), 1)                           AS avg_spo2\nFROM islands\nWHERE is_low = 1\nGROUP BY episode_id\nORDER BY episode_start"
+    }
+  ],
+  "charts": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Desaturation Episodes Summary",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "query": "Desaturation Episodes Query"
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Episode Timeline",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "query": "Desaturation Episodes Query",
+      "metrics": ["lowest_spo2", "avg_spo2"],
+      "timeColumns": ["episode_start"],
+      "seriesColumns": ["episode_id"]
+    }
+  ],
+  "layout": [
+    { "i": "chart-1", "x": 0, "y": 0, "w": 12, "h": 8 },
+    { "i": "chart-2", "x": 12, "y": 0, "w": 12, "h": 8 }
+  ]
+}

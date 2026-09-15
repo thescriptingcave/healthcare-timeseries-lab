@@ -1,0 +1,35 @@
+{
+  "title": "I2: Moving Average Analysis",
+  "description": "Intermediate lesson: Distinguish real desaturation from device noise using moving average",
+  "database": "trino",
+  "schema": "lakehouse",
+  "queries": [
+    {
+      "label": "Moving Average Query",
+      "sql": "WITH smoothed AS (\n    SELECT\n        v.event_time,\n        p.full_name,\n        v.spo2_pct,\n        ROUND(AVG(v.spo2_pct) OVER (\n            PARTITION BY v.patient_id\n            ORDER BY v.event_time\n            ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING\n        ), 2) AS spo2_ma\n    FROM lake.lakehouse.vitals v\n    JOIN mysql.clinical.patients p\n        ON p.patient_id = v.patient_id\n    WHERE v.patient_id IN (\n        '55555555-5555-5555-5555-555555555555',\n        '77777777-7777-7777-7777-777777777777'\n    )\n)\nSELECT\n    event_time,\n    full_name,\n    ROUND(spo2_pct, 1) AS raw_spo2,\n    spo2_ma,\n    ROUND(spo2_pct - spo2_ma, 2) AS deviation_from_average\nFROM smoothed\nORDER BY event_time, full_name"
+    }
+  ],
+  "charts": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Raw vs Smoothed SpO2",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "query": "Moving Average Query"
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "SpO2 Trend Comparison",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "query": "Moving Average Query",
+      "metrics": ["raw_spo2", "spo2_ma"],
+      "timeColumns": ["event_time"],
+      "seriesColumns": ["full_name"]
+    }
+  ],
+  "layout": [
+    { "i": "chart-1", "x": 0, "y": 0, "w": 12, "h": 8 },
+    { "i": "chart-2", "x": 12, "y": 0, "w": 12, "h": 8 }
+  ]
+}

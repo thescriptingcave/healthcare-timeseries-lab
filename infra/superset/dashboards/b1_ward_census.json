@@ -1,0 +1,34 @@
+{
+  "title": "B1: Ward Census - Who was on the ward on January 1st?",
+  "description": "Beginner lesson: List of every patient admitted on 2026-01-01 with demographics and admission/discharge window",
+  "database": "trino",
+  "schema": "clinical",
+  "queries": [
+    {
+      "label": "Ward Census Query",
+      "sql": "SELECT\n    p.full_name,\n    p.mrn,\n    p.age,\n    p.sex,\n    p.admitted_at,\n    e.ended_at,\n    e.status\nFROM mysql.clinical.patients p\nJOIN mysql.clinical.encounters e\n    ON e.patient_id = p.patient_id\nORDER BY p.admitted_at"
+    }
+  ],
+  "charts": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Ward Census",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "query": "Ward Census Query"
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Admissions Timeline",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "query": "Ward Census Query",
+      "metrics": ["count"],
+      "timeColumns": ["admitted_at"]
+    }
+  ],
+  "layout": [
+    { "i": "chart-1", "x": 0, "y": 0, "w": 12, "h": 8 },
+    { "i": "chart-2", "x": 12, "y": 0, "w": 12, "h": 8 }
+  ]
+}

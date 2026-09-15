@@ -157,10 +157,18 @@ healthcare-timeseries-lab/
 │   ├── run_lakehouse_analytics.py
 │   └── run_pipeline.py             # Milestones 7-8 (unified pipeline + device)
 ├── infra/
-│   └── grafana/
+│   ├── grafana/
+│   │   └── dashboards/
+│   │       ├── vitals.json            # Milestone 6 (vitals dashboard)
+│   │       └── business_questions.json # Milestone 10 (8 panels mirroring B1-A3)
+│   └── superset/
 │       └── dashboards/
-│           ├── vitals.json            # Milestone 6 (vitals dashboard)
-│           └── business_questions.json # Milestone 10 (8 panels mirroring B1-A3)
+│           ├── b1_ward_census.json       # Milestone 10 (beginner)
+│           ├── b2_hourly_handoff.json    # Milestone 10 (beginner)
+│           ├── i1_first_drop.json        # Milestone 10 (intermediate)
+│           ├── i2_moving_average.json    # Milestone 10 (intermediate)
+│           ├── a1_desaturation_episodes.json # Milestone 10 (advanced)
+│           └── a2_alarm_sessions.json    # Milestone 10 (advanced)
 ├── notebooks/
 │   ├── device_vs_true_spo2.ipynb      # Milestone 9 (observed vs true vitals)
 │   ├── tutorial_business_advanced.ipynb    # Milestone 10 (advanced SQL/business questions)
