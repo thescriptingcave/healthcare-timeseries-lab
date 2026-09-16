@@ -202,28 +202,6 @@ services:
       retries: 30
       start_period: 20s
 
-  superset:
-    image: apache/superset:109402b
-    container_name: htl-superset
-    depends_on:
-      trino:
-        condition: service_healthy
-    environment:
-      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-dev-key-123}
-      SUPERSET__SQLALCHEMY_DATABASE_URI: sqlite:///superset.db
-      SUPERSET_HOST: 0.0.0.0
-    ports:
-      - "8088:8088"
-    volumes:
-      - ./infra/superset:/app/superset:ro
-    command: superset db upgrade
-    healthcheck:
-      test: ["CMD-SHELL", "(exec 3<>/dev/tcp/localhost/8088) && exit 0 || exit 1"]
-      interval: 10s
-      timeout: 10s
-      retries: 30
-      start_period: 45s
-
 volumes:
   kafka_data:
   minio_data:
@@ -231,4 +209,3 @@ volumes:
   pg_iceberg_data:
   influxdb2_data:
   mysql_clinical_data:
-  superset_data:

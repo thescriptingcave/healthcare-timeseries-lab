@@ -17,7 +17,8 @@ services:
       start_period: 45s
 
   superset:
-    image: apache/superset:109402b
+    build:
+      context: ./infra/superset
     container_name: htl-superset
     depends_on:
       trino:

@@ -16,3 +16,6 @@ data/
 
 # Downloaded third-party jars (fetched by `make infra-libs`)
 infra/trino/lib/postgresql.jar
+
+# Local Superset metadata (SQLite instance DB)
+infra/superset/instance/

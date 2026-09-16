@@ -147,8 +147,9 @@ telemetry still mirrors physiology exactly.
 ```text
 healthcare-timeseries-lab/
 ├── scripts/
-│   ├── build_m10_notebooks.py      # Milestone 10 (notebook builder)
-│   ├── init_infra.py
+ │   ├── build_m10_notebooks.py      # Milestone 10 (notebook builder)
+ │   ├── import_superset_dashboards.py # Milestone 10 (Superset REST API import)
+ │   ├── init_infra.py
 │   ├── provision_lakehouse.py
 │   ├── push_to_fhir.py
 │   ├── run_baseline.py
@@ -161,9 +162,11 @@ healthcare-timeseries-lab/
 │   │   └── dashboards/
 │   │       ├── vitals.json            # Milestone 6 (vitals dashboard)
 │   │       └── business_questions.json # Milestone 10 (8 panels mirroring B1-A3)
-│   └── superset/
-│       └── dashboards/
-│           ├── b1_ward_census.json       # Milestone 10 (beginner)
+ │   └── superset/
+ │       ├── Dockerfile                  # Milestone 10 (Superset + Trino driver)
+ │       ├── patch_trino_dialect.py      # Milestone 10 (SQLAlchemy 2.x compat patch)
+ │       └── dashboards/
+ │           ├── b1_ward_census.json       # Milestone 10 (beginner)
 │           ├── b2_hourly_handoff.json    # Milestone 10 (beginner)
 │           ├── i1_first_drop.json        # Milestone 10 (intermediate)
 │           ├── i2_moving_average.json    # Milestone 10 (intermediate)
@@ -219,7 +222,7 @@ Every milestone is validated end-to-end before commit and push.
 | M7 — Unified simulation → pipeline | One general pipeline runs any scenario (baseline or a clinical condition) through the physiology engine and streams it `simulate → Kafka (Avro) → Iceberg lakehouse → HAPI FHIR`; `run_baseline.py`/`run_hypoxemia.py` reuse the sim runners | `uv run python scripts/run_pipeline.py --scenario progressive_hypoxemia` → Kafka + lakehouse rows + FHIR Observations; `uv run python scripts/run_baseline.py` |
 | M8 — Device / fault layer | `DeviceSimulator` between true physiology and observed telemetry: per-channel measurement noise, precision/rounding, sensor latency, clock skew, dropout, drift, spikes, flatlines and disconnects (with `CONNECTED`/`DISCONNECTED` status and `GOOD`/`DEGRADED`/`POOR`/`LOST` quality); pipeline applies a bedside-monitor profile by default | `uv run python scripts/run_pipeline.py --scenario baseline` → observed events with noise/rounding and occasional dropouts; `--no-device` restores exact physiology |
 | M9 — Device-fidelity analysis | Jupyter notebook compares device-observed telemetry against the true physiological states: SpO2 overlay with dropout/spike markers, per-channel bias/MAE/RMSE, SpO2 error distribution, sensor latency, and a fault-window demo (SpO2 flatline + disconnect) using the `analysis` package (`align_observed_to_truth`, `error_metrics`) | `uv run python scripts/run_hypoxemia.py` writes observed + truth CSVs; `uv run jupyter nbconvert --to notebook --execute --inplace notebooks/device_vs_true_spo2.ipynb` |
-| M10 — Business questions | 9 SQL tutorials (beginner/intermediate/advanced) mirroring clinical workflows; Grafana dashboard with 8 panels; Superset dashboards (6); Jupyter notebooks with business-driven analysis; ward (Naomi/Cole/Ivy) + legacy (Ava/Marcus) patients; truth table for device-fidelity benchmarking | `uv run python scripts/build_m10_notebooks.py`; run `tutorial_business_{beginner,intermediate,advanced}.ipynb`; `uv run pytest tests/test_tutorials.py`; import Superset dashboards from `infra/superset/dashboards/` |
+| M10 — Business questions | 9 SQL tutorials (beginner/intermediate/advanced) mirroring clinical workflows; Grafana dashboard with 8 panels; Superset dashboards (6); Jupyter notebooks with business-driven analysis; ward (Naomi/Cole/Ivy) + legacy (Ava/Marcus) patients; truth table for device-fidelity benchmarking | `uv run python scripts/build_m10_notebooks.py`; run `tutorial_business_{beginner,intermediate,advanced}.ipynb`; `uv run pytest tests/test_tutorials.py`; import Superset dashboards with `uv run python scripts/import_superset_dashboards.py` |
 
 ## Development Environment
 
@@ -257,11 +260,16 @@ uv run ruff check .
 - Import dashboards from `infra/grafana/dashboards/`
 
 **Superset** (M10):
-- Run `docker compose up superset`
+- Run `docker compose -f docker-compose.superset.yml up -d superset`
 - Access at http://localhost:8088 (admin/admin)
 - Import dashboards: `uv run python scripts/import_superset_dashboards.py`
-- Or manually: Dashboard → '+' → 'Import Dashboard' → upload JSON
-- Configure Trino connection: `trino://trino:trino@localhost:8080/trino`
+  - The script uses the Superset REST API (login + CSRF) to create the
+    `trino` database connection, one virtual dataset per lesson query, the
+    table/timeseries charts, and the dashboards. It is idempotent: re-running
+    skips dashboards that already exist.
+- The `trino` connection is created automatically as `trino://trino@trino:8080/trino`
+  (the dashboard JSON files are a project-specific format and are **not**
+  importable through the Superset UI; use the script).
 
 Run the baseline simulator:
 
