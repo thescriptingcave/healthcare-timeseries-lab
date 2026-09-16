@@ -267,7 +267,7 @@ uv run ruff check .
     `trino` database connection, one virtual dataset per lesson query, the
     table/timeseries charts, and the dashboards. It is idempotent: re-running
     skips dashboards that already exist.
-- The `trino` connection is created automatically as `trino://trino@trino:8080/trino`
+- The `trino` connection is created automatically as `trino://trino@trino:8080/lake`
   (the dashboard JSON files are a project-specific format and are **not**
   importable through the Superset UI; use the script).
 

@@ -15,6 +15,7 @@ import argparse
 import json
 import re
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -24,8 +25,8 @@ DEFAULT_BASE_URL = "http://localhost:8088"
 DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "admin"
 DATABASE_NAME = "trino"
-TRINO_URI = "trino://trino@trino:8080/trino"
-SCHEMA_TRINO = "trino"
+TRINO_URI = "trino://trino@trino:8080/lake"
+SCHEMA_TRINO = "lakehouse"
 
 DASHBOARDS_DIR = Path(__file__).resolve().parents[1] / "infra" / "superset" / "dashboards"
 
@@ -238,6 +239,7 @@ class SupersetImporter:
             "datasource": f"{dataset_id}__table",
             "viz_type": TABLE_VIZ,
             "time_range": "No filter",
+            "query_mode": "raw",
             "all_columns": columns,
             "metrics": [],
             "order_by_cols": [],
@@ -344,36 +346,54 @@ class SupersetImporter:
         )
         return created["id"]
 
+    def associate_charts(self, dashboard_id: int,
+                         chart_ids: Iterable[int]) -> None:
+        for chart_id in chart_ids:
+            self.client.put(
+                f"/api/v1/chart/{chart_id}", {"dashboards": [dashboard_id]}
+            )
 
-def build_position(charts: dict[str, tuple[int, int, int, int]]) -> str:
+
+def build_position(title: str,
+                   charts: dict[str, tuple[int, int, int, int]]) -> str:
     """Build the Superset dashboard position JSON from a chart id map.
 
     Each value is ``(x, y, w, h)`` already expressed on Superset's 12-column
-    grid.
+    grid. Charts are grouped per grid row and wrapped in ``ROW`` components,
+    matching the layout Superset itself generates (a chart placed directly
+    under ``GRID`` crashes the dashboard view).
     """
+    rows: dict[int, list[tuple[str, tuple[int, int, int, int]]]] = {}
+    for chart_id, (x, y, w, h) in charts.items():
+        rows.setdefault(y, []).append((chart_id, (x, y, w, h)))
+
     grid_positions = {
-        "ROOT_ID": {"type": "ROOT", "id": "ROOT_ID", "children": ["GRID_ID"],
-                    "parents": []},
+        "DASHBOARD_VERSION_KEY": "v2",
+        "ROOT_ID": {"type": "ROOT", "id": "ROOT_ID",
+                    "children": ["GRID_ID"], "parents": []},
         "GRID_ID": {"type": "GRID", "id": "GRID_ID",
-                    "children": [f"CHART-{cid}" for cid in charts],
+                    "children": [f"ROW-{y}" for y in sorted(rows)],
                     "parents": ["ROOT_ID"]},
         "HEADER_ID": {"type": "HEADER", "id": "HEADER_ID", "children": [],
-                      "parents": ["ROOT_ID"]},
+                      "meta": {"text": title}, "parents": ["ROOT_ID"]},
     }
+    for y, items in sorted(rows.items()):
+        ordered = sorted(items, key=lambda item: item[1][0])
+        grid_positions[f"ROW-{y}"] = {
+            "type": "ROW",
+            "id": f"ROW-{y}",
+            "children": [f"CHART-{chart_id}" for chart_id, _ in ordered],
+            "parents": ["ROOT_ID", "GRID_ID"],
+            "meta": {"background": "BACKGROUND_TRANSPARENT"},
+        }
     for chart_id, (x, y, w, h) in charts.items():
         grid_positions[f"CHART-{chart_id}"] = {
             "type": "CHART",
             "id": f"CHART-{chart_id}",
             "children": [],
-            "parents": ["ROOT_ID", "GRID_ID"],
-            "meta": {
-                "width": w,
-                "height": h,
-                "chartId": chart_id,
-                "sliceName": "",
-                "z_index": None,
-                "position": {"x": x, "y": y, "w": w, "h": h},
-            },
+            "parents": ["ROOT_ID", "GRID_ID", f"ROW-{y}"],
+            "meta": {"chartId": chart_id, "width": w, "height": h,
+                     "sliceName": ""},
         }
     return json.dumps(grid_positions)
 
@@ -457,8 +477,9 @@ def import_dashboards(base_url: str, username: str, password: str) -> None:
             chart_id = chart_ids[chart["title"]]
             position_charts[chart_id] = layout[f"chart-{chart['id']}"]
 
-        position_json = build_position(position_charts)
+        position_json = build_position(title, position_charts)
         dashboard_id = importer.ensure_dashboard(title, slug, position_json)
+        importer.associate_charts(dashboard_id, chart_ids.values())
         print(f"[DASH] {title} id={dashboard_id}")
 
     print("\nImport complete. Dashboards available at "
