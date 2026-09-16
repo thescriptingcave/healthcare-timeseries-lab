@@ -6,6 +6,10 @@ The project is designed to generate reproducible physiological telemetry for lea
 
 > This project produces synthetic data for software engineering and analytics education. It is not a clinically validated physiological simulator and must not be used for diagnosis, treatment, or clinical decision-making.
 
+## Documentation
+
+Project documentation lives in [`docs/`](docs/README.md): [architecture](docs/architecture.md), [data flow](docs/data_flow.md), [data model](docs/data_model.md), [infrastructure](docs/infrastructure.md), [reliability](docs/reliability.md), [scope](docs/scope.md), and [testing](docs/testing.md).
+
 ## Core Design Principle
 
 **Model the patient and the condition; do not script telemetry.**
