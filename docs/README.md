@@ -12,6 +12,7 @@ describes a slice of the repository as it stands today (Milestones 1-10).
 | [reliability](reliability.md) | Determinism, idempotency, healthchecks, and guardrails |
 | [scope](scope.md) | What is included, out of scope, and planned |
 | [testing](testing.md) | Test strategy, module map, and gates |
+| [training](training.md) | Lesson library, notebooks, dashboards, learning path |
 
 Diagrams use Mermaid and render on GitHub. The repository is a **synthetic
 data platform for software-engineering and analytics education**; it is not a

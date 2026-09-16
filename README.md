@@ -8,7 +8,7 @@ The project is designed to generate reproducible physiological telemetry for lea
 
 ## Documentation
 
-Project documentation lives in [`docs/`](docs/README.md): [architecture](docs/architecture.md), [data flow](docs/data_flow.md), [data model](docs/data_model.md), [infrastructure](docs/infrastructure.md), [reliability](docs/reliability.md), [scope](docs/scope.md), and [testing](docs/testing.md).
+Project documentation lives in [`docs/`](docs/README.md): [architecture](docs/architecture.md), [data flow](docs/data_flow.md), [data model](docs/data_model.md), [infrastructure](docs/infrastructure.md), [reliability](docs/reliability.md), [scope](docs/scope.md), [testing](docs/testing.md), and [training & tutorials](docs/training.md).
 
 ## Core Design Principle
 
